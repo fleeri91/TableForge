@@ -43,8 +43,7 @@ interface MenuItem {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-let _id = 0;
-function uid() { return `i${++_id}`; }
+function uid() { return Math.random().toString(36).slice(2, 9); }
 
 function colLabel(index: number): string {
   if (index < 26) return String.fromCharCode(65 + index);
@@ -70,26 +69,38 @@ const MIN_ROW_H = 28;
 
 // ── TableEditor ────────────────────────────────────────────────────────────
 
-export function TableEditor({ template }: { template?: TableTemplate | null }) {
-  const [columns, setColumns] = useState<Column[]>(() =>
-    template
-      ? Array.from({ length: template.columns }, (_, i) => ({
-          id: uid(),
-          name: `${template.columnPrefix}:${i + 1}`,
-          width: 140,
-        }))
-      : Array.from({ length: 4 }, (_, i) => makeColumn(i))
-  );
-  const [rows, setRows] = useState<Row[]>(() =>
-    Array.from({ length: template ? template.rows : 6 }, () => makeRow())
-  );
-  const [cells, setCells] = useState<Cells>({});
-  const [cellColors, setCellColors] = useState<Record<string, string>>({});
-  const [cellEmojis, setCellEmojis] = useState<Record<string, string[]>>({});
-  const [cellDisabled, setCellDisabled] = useState<Record<string, boolean>>({});
+function loadSaved(key: string) {
+  try { return JSON.parse(localStorage.getItem(key) ?? 'null') as Record<string, unknown> | null; }
+  catch { return null; }
+}
+
+export function TableEditor({ template, storageKey }: { template?: TableTemplate | null; storageKey: string }) {
+  const [columns, setColumns] = useState<Column[]>(() => {
+    const s = loadSaved(storageKey);
+    if (Array.isArray(s?.columns) && (s!.columns as Column[]).length > 0) return s!.columns as Column[];
+    return template
+      ? Array.from({ length: template.columns }, (_, i) => ({ id: uid(), name: `${template.columnPrefix}:${i + 1}`, width: 140 }))
+      : Array.from({ length: 4 }, (_, i) => makeColumn(i));
+  });
+  const [rows, setRows] = useState<Row[]>(() => {
+    const s = loadSaved(storageKey);
+    if (Array.isArray(s?.rows) && (s!.rows as Row[]).length > 0) return s!.rows as Row[];
+    return Array.from({ length: template ? template.rows : 6 }, () => makeRow());
+  });
+  const [cells, setCells] = useState<Cells>(() => (loadSaved(storageKey)?.cells as Cells) ?? {});
+  const [cellColors, setCellColors] = useState<Record<string, string>>(() => (loadSaved(storageKey)?.cellColors as Record<string, string>) ?? {});
+  const [cellEmojis, setCellEmojis] = useState<Record<string, string[]>>(() => (loadSaved(storageKey)?.cellEmojis as Record<string, string[]>) ?? {});
+  const [cellDisabled, setCellDisabled] = useState<Record<string, boolean>>(() => (loadSaved(storageKey)?.cellDisabled as Record<string, boolean>) ?? {});
   const [activeCell, setActiveCell] = useState<{ rowId: string; colId: string } | null>(null);
   const [editingHeader, setEditingHeader] = useState<string | null>(null);
+
+  // ── Persist to localStorage ────────────────────────────────────────────────
+  useEffect(() => {
+    try { localStorage.setItem(storageKey, JSON.stringify({ columns, rows, cells, cellColors, cellEmojis, cellDisabled })); }
+    catch { /* storage full or unavailable */ }
+  }, [storageKey, columns, rows, cells, cellColors, cellEmojis, cellDisabled]);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -250,7 +261,8 @@ export function TableEditor({ template }: { template?: TableTemplate | null }) {
 
   const openCtxMenu = (e: React.MouseEvent, rowId: string, colId: string) => {
     e.preventDefault();
-    setCtxMenu({ x: e.clientX, y: e.clientY, rowId, colId });
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setCtxMenu({ x: rect.right + 4, y: rect.top, rowId, colId });
   };
 
   useEffect(() => {
@@ -331,10 +343,14 @@ export function TableEditor({ template }: { template?: TableTemplate | null }) {
             key={row.id}
             className="flex border-b border-gray-100 dark:border-gray-700/60 group/row"
             style={{ height: row.height }}
+            onMouseEnter={() => setHoveredRowId(row.id)}
+            onMouseLeave={() => setHoveredRowId(null)}
           >
             {/* Row number */}
             <div
-              className="relative shrink-0 flex items-center justify-center bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500 select-none cursor-default hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className={['relative shrink-0 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500 select-none cursor-default transition-colors',
+                hoveredRowId === row.id ? 'bg-blue-50 dark:bg-blue-950/40' : 'bg-gray-50 dark:bg-gray-800',
+              ].join(' ')}
               style={{ width: ROW_NUM_W }}
               onContextMenu={e => openCtxMenu(e, row.id, columns[0]?.id ?? '')}
             >
@@ -357,12 +373,14 @@ export function TableEditor({ template }: { template?: TableTemplate | null }) {
                 <div
                   key={col.id}
                   className={[
-                    'relative shrink-0 border-r border-gray-100 dark:border-gray-700/60',
+                    'relative shrink-0 border-r border-gray-100 dark:border-gray-700/60 transition-colors',
                     isDisabled
                       ? 'bg-gray-400 dark:bg-gray-600'
                       : isActive
                         ? 'ring-2 ring-inset ring-blue-500 z-10'
-                        : 'hover:bg-black/3 dark:hover:bg-white/4',
+                        : hoveredRowId === row.id
+                          ? 'bg-blue-50/60 dark:bg-blue-950/30'
+                          : '',
                   ].join(' ')}
                   style={{
                     width: col.width,
