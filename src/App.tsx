@@ -23,6 +23,11 @@ const REGISTRY_KEY = 'tableforge:registry';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
+// A save's own data key holds the last-persisted snapshot; edits made after
+// loading it go to this separate working-copy key instead, so typing (or
+// Reset) never mutates the snapshot until Save/Update is clicked.
+function draftKeyForSave(saveId: string) { return `tableforge:save-draft:${saveId}`; }
+
 function loadRegistry(): SavedTable[] {
   try {
     const raw = JSON.parse(localStorage.getItem(REGISTRY_KEY) ?? '[]');
@@ -55,7 +60,7 @@ export function App() {
     ? savedTables.find(s => s.id === activeSlot.saveId) ?? null
     : null;
   const draftKey = `tableforge-${activeTemplate?.id ?? 'blank'}`;
-  const storageKey = activeSave ? activeSave.dataKey : draftKey;
+  const storageKey = activeSave ? draftKeyForSave(activeSave.id) : draftKey;
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
@@ -100,6 +105,11 @@ export function App() {
   function confirmSave() {
     const name = saveName.trim() || defaultName();
     if (activeSave) {
+      // Persist the working copy into the save's own snapshot key.
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        try { localStorage.setItem(activeSave.dataKey, raw); } catch { /* storage full or unavailable */ }
+      }
       setSavedTables(prev => prev.map(s =>
         s.id === activeSave.id ? { ...s, name, savedAt: Date.now() } : s
       ));
@@ -108,7 +118,12 @@ export function App() {
       const id = uid();
       const dataKey = `tableforge:save:${id}`;
       if (raw) {
-        try { localStorage.setItem(dataKey, raw); } catch { /* storage full or unavailable */ }
+        try {
+          localStorage.setItem(dataKey, raw);
+          // Seed the working copy too, so continued edits don't touch the
+          // snapshot again until the next explicit Update.
+          localStorage.setItem(draftKeyForSave(id), raw);
+        } catch { /* storage full or unavailable */ }
       }
       const entry: SavedTable = {
         id, name, templateId: activeTemplate?.id ?? null, dataKey, savedAt: Date.now(),
@@ -120,16 +135,26 @@ export function App() {
   }
 
   function loadSave(entry: SavedTable) {
+    // Always refresh the working copy from the snapshot, discarding any
+    // earlier unsaved edits so Load reliably shows what was last saved.
+    const raw = localStorage.getItem(entry.dataKey);
+    try {
+      if (raw) localStorage.setItem(draftKeyForSave(entry.id), raw);
+      else localStorage.removeItem(draftKeyForSave(entry.id));
+    } catch { /* storage full or unavailable */ }
+
     const t = TABLE_TEMPLATES.find(t => t.id === entry.templateId) ?? null;
     setActiveTemplate(t);
     setActiveSlot({ kind: 'save', saveId: entry.id });
     setLoadOpen(false);
+    setResetCount(c => c + 1); // force remount even if this save was already active
   }
 
   function deleteSave(entry: SavedTable, e: React.MouseEvent) {
     e.stopPropagation();
     if (!window.confirm(`Delete "${entry.name}"? This cannot be undone.`)) return;
     localStorage.removeItem(entry.dataKey);
+    localStorage.removeItem(draftKeyForSave(entry.id));
     setSavedTables(prev => prev.filter(s => s.id !== entry.id));
     if (activeSlot.kind === 'save' && activeSlot.saveId === entry.id) {
       setActiveTemplate(null);
