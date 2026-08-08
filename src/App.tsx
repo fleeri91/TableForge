@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TableEditor } from './components/TableEditor';
 import { TABLE_TEMPLATES, type TableTemplate } from './config/templates';
 
@@ -55,6 +55,8 @@ export function App() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [feedback, setFeedback] = useState<{ text: string; visible: boolean } | null>(null);
+  const feedbackTimers = useRef<{ hide?: number; clear?: number }>({});
 
   const activeSave = activeSlot.kind === 'save'
     ? savedTables.find(s => s.id === activeSlot.saveId) ?? null
@@ -91,46 +93,66 @@ export function App() {
     };
   }, [saveOpen, loadOpen]);
 
+  function flashFeedback(text: string) {
+    if (feedbackTimers.current.hide) window.clearTimeout(feedbackTimers.current.hide);
+    if (feedbackTimers.current.clear) window.clearTimeout(feedbackTimers.current.clear);
+    setFeedback({ text, visible: true });
+    feedbackTimers.current.hide = window.setTimeout(() => {
+      setFeedback(f => (f ? { ...f, visible: false } : f));
+      feedbackTimers.current.clear = window.setTimeout(() => setFeedback(null), 300);
+    }, 1800);
+  }
+
   function defaultName() {
     const label = activeTemplate?.label ?? 'Blank';
     return `${label} — ${new Date().toLocaleDateString()}`;
   }
 
   function openSaveDialog() {
-    setSaveName(activeSave?.name ?? defaultName());
+    setSaveName(defaultName());
     setSaveOpen(true);
     setLoadOpen(false);
   }
 
+  // Update the already-loaded save in place — no naming step, since there's
+  // nothing to choose: it just writes back to the save that's active.
+  function updateCurrentSave() {
+    if (!activeSave) return;
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      try {
+        localStorage.setItem(activeSave.dataKey, raw);
+        flashFeedback(`"${activeSave.name}" updated`);
+      } catch {
+        flashFeedback('Update failed — storage full?');
+      }
+    }
+    setSavedTables(prev => prev.map(s =>
+      s.id === activeSave.id ? { ...s, savedAt: Date.now() } : s
+    ));
+  }
+
   function confirmSave() {
     const name = saveName.trim() || defaultName();
-    if (activeSave) {
-      // Persist the working copy into the save's own snapshot key.
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        try { localStorage.setItem(activeSave.dataKey, raw); } catch { /* storage full or unavailable */ }
+    const raw = localStorage.getItem(storageKey);
+    const id = uid();
+    const dataKey = `tableforge:save:${id}`;
+    if (raw) {
+      try {
+        localStorage.setItem(dataKey, raw);
+        // Seed the working copy too, so continued edits don't touch the
+        // snapshot again until the next explicit Update.
+        localStorage.setItem(draftKeyForSave(id), raw);
+        flashFeedback(`Saved as "${name}"`);
+      } catch {
+        flashFeedback('Save failed — storage full?');
       }
-      setSavedTables(prev => prev.map(s =>
-        s.id === activeSave.id ? { ...s, name, savedAt: Date.now() } : s
-      ));
-    } else {
-      const raw = localStorage.getItem(storageKey);
-      const id = uid();
-      const dataKey = `tableforge:save:${id}`;
-      if (raw) {
-        try {
-          localStorage.setItem(dataKey, raw);
-          // Seed the working copy too, so continued edits don't touch the
-          // snapshot again until the next explicit Update.
-          localStorage.setItem(draftKeyForSave(id), raw);
-        } catch { /* storage full or unavailable */ }
-      }
-      const entry: SavedTable = {
-        id, name, templateId: activeTemplate?.id ?? null, dataKey, savedAt: Date.now(),
-      };
-      setSavedTables(prev => [entry, ...prev]);
-      setActiveSlot({ kind: 'save', saveId: id });
     }
+    const entry: SavedTable = {
+      id, name, templateId: activeTemplate?.id ?? null, dataKey, savedAt: Date.now(),
+    };
+    setSavedTables(prev => [entry, ...prev]);
+    setActiveSlot({ kind: 'save', saveId: id });
     setSaveOpen(false);
   }
 
@@ -162,10 +184,29 @@ export function App() {
     }
   }
 
+  // Print just the table (toolbar hidden via print:hidden) using the browser's
+  // native "Save as PDF" — no extra dependencies needed. Forces light mode for
+  // the printed page regardless of the on-screen theme, for a clean document.
+  function exportPdf() {
+    const root = document.documentElement;
+    const wasDark = root.classList.contains('dark');
+    let restored = false;
+    const restore = () => {
+      if (restored) return;
+      restored = true;
+      if (wasDark) root.classList.add('dark');
+      window.removeEventListener('afterprint', restore);
+    };
+    if (wasDark) root.classList.remove('dark');
+    window.addEventListener('afterprint', restore);
+    setTimeout(restore, 5000); // safety net if the browser never fires afterprint
+    window.print();
+  }
+
   return (
     <div className="min-h-screen bg-[#eeeef0] dark:bg-gray-950 flex flex-col transition-colors">
       {/* Toolbar */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-5 py-2.5 flex items-center gap-3 shadow-sm">
+      <header className="print:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-5 py-2.5 flex items-center gap-3 shadow-sm">
         <GridIcon />
         <span className="text-base font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
           TableForge
@@ -202,11 +243,26 @@ export function App() {
         <div className="relative">
           <button
             className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            onClick={e => { e.stopPropagation(); openSaveDialog(); }}
-            title="Save table"
+            onClick={e => {
+              e.stopPropagation();
+              if (activeSave) updateCurrentSave();
+              else openSaveDialog();
+            }}
+            title={activeSave ? `Update "${activeSave.name}"` : 'Save table'}
           >
             <SaveIcon /> {activeSave ? 'Update' : 'Save'}
           </button>
+
+          {feedback && (
+            <span
+              className={[
+                'pointer-events-none absolute left-0 top-full mt-1.5 whitespace-nowrap flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 transition-opacity duration-300',
+                feedback.visible ? 'opacity-100' : 'opacity-0',
+              ].join(' ')}
+            >
+              <CheckIcon /> {feedback.text}
+            </span>
+          )}
 
           {saveOpen && (
             <div
@@ -214,7 +270,7 @@ export function App() {
               onClick={e => e.stopPropagation()}
             >
               <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">
-                {activeSave ? 'Update saved table' : 'Save table as'}
+                Save table as
               </p>
               <input
                 autoFocus
@@ -301,6 +357,15 @@ export function App() {
           )}
         </div>
 
+        {/* Export */}
+        <button
+          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          onClick={exportPdf}
+          title="Export the table as a PDF"
+        >
+          <PdfIcon /> Export PDF
+        </button>
+
         <span className="text-xs text-gray-400 dark:text-gray-500 ml-1 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5">
           Right-click cells for options · Double-click headers to rename
         </span>
@@ -327,7 +392,7 @@ export function App() {
       </header>
 
       {/* Canvas */}
-      <main className="flex-1 overflow-auto p-12 flex items-start justify-center">
+      <main className="flex-1 overflow-auto p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
         <TableEditor
           key={`${storageKey}-${resetCount}`}
           template={activeTemplate}
@@ -403,6 +468,29 @@ function FolderIcon() {
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
       strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function PdfIcon() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 15.5h1.2a1.2 1.2 0 1 0 0-2.4H8v4.8" />
+      <path d="M12.5 13.1v4.8h1a1.8 1.8 0 0 0 1.8-1.8v-1.2a1.8 1.8 0 0 0-1.8-1.8Z" />
+      <path d="M20 13.1h-2.3v4.8" />
+      <path d="M17.7 15.4h1.8" />
     </svg>
   );
 }

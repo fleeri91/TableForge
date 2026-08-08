@@ -2,3 +2,18 @@
 
 /* Use class-based dark mode (.dark on <html>) instead of prefers-color-scheme */
 @variant dark (&:where(.dark, .dark *));
+
+/* PDF export: browser "Print to PDF" on just the table (toolbar hidden via
+   print:hidden in App.tsx). Landscape fits wider tables, and print-color-adjust
+   keeps cell colors/shading instead of the browser stripping them by default. */
+@media print {
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
