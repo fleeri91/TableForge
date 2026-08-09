@@ -1,6 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
+import { Grid3x3, Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Check } from 'lucide-react';
 import { TableEditor } from './components/TableEditor';
 import { TABLE_TEMPLATES, type TableTemplate } from './config/templates';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 // ── Saved tables registry ────────────────────────────────────────────────────
 // Named snapshots live under their own localStorage key; a lightweight
@@ -20,6 +29,7 @@ type ActiveSlot =
   | { kind: 'save'; saveId: string };
 
 const REGISTRY_KEY = 'tableforge:registry';
+const BLANK_TEMPLATE = 'blank';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -80,19 +90,6 @@ export function App() {
     catch { /* storage full or unavailable */ }
   }, [savedTables]);
 
-  // ── Close popovers on outside click / Escape ──────────────────────────────
-  useEffect(() => {
-    if (!saveOpen && !loadOpen) return;
-    const close = () => { setSaveOpen(false); setLoadOpen(false); };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
-    window.addEventListener('click', close);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('click', close);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [saveOpen, loadOpen]);
-
   function flashFeedback(text: string) {
     if (feedbackTimers.current.hide) window.clearTimeout(feedbackTimers.current.hide);
     if (feedbackTimers.current.clear) window.clearTimeout(feedbackTimers.current.clear);
@@ -106,12 +103,6 @@ export function App() {
   function defaultName() {
     const label = activeTemplate?.label ?? 'Blank';
     return `${label} — ${new Date().toLocaleDateString()}`;
-  }
-
-  function openSaveDialog() {
-    setSaveName(defaultName());
-    setSaveOpen(true);
-    setLoadOpen(false);
   }
 
   // Update the already-loaded save in place — no naming step, since there's
@@ -192,191 +183,171 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#eeeef0] dark:bg-gray-950 flex flex-col transition-colors">
+    <div className="min-h-screen bg-muted/40 flex flex-col transition-colors">
       {/* Toolbar */}
-      <header className="print:hidden bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-5 py-2.5 flex items-center gap-3 shadow-sm">
-        <GridIcon />
-        <span className="text-base font-semibold text-gray-800 dark:text-gray-100 tracking-tight">
+      <header className="print:hidden bg-card border-b border-border px-5 py-2.5 flex items-center gap-3 shadow-sm">
+        <Grid3x3 className="size-5 text-primary" />
+        <span className="text-base font-semibold text-foreground tracking-tight">
           TableForge
         </span>
 
-        {/* Divider */}
-        <div className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
+        <Separator orientation="vertical" className="h-5" />
 
         {/* Template picker */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">
+          <span className="text-xs text-muted-foreground font-medium">
             Template
           </span>
-          <select
-            value={activeTemplate?.id ?? ''}
-            onChange={e => {
-              const t = TABLE_TEMPLATES.find(t => t.id === e.target.value) ?? null;
+          <Select
+            items={{ [BLANK_TEMPLATE]: 'Blank', ...Object.fromEntries(TABLE_TEMPLATES.map(t => [t.id, t.label])) }}
+            value={activeTemplate?.id ?? BLANK_TEMPLATE}
+            onValueChange={v => {
+              const t = TABLE_TEMPLATES.find(t => t.id === v) ?? null;
               setActiveTemplate(t);
               setActiveSlot({ kind: 'draft', templateId: t?.id ?? null });
             }}
-            className="text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
           >
-            <option value="">Blank</option>
-            {TABLE_TEMPLATES.map(t => (
-              <option key={t.id} value={t.id}>{t.label}</option>
-            ))}
-          </select>
+            <SelectTrigger size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={BLANK_TEMPLATE}>Blank</SelectItem>
+              {TABLE_TEMPLATES.map(t => (
+                <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Divider */}
-        <div className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
+        <Separator orientation="vertical" className="h-5" />
 
-        {/* Save */}
+        {/* Save / Update */}
         <div className="relative">
-          <button
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            onClick={e => {
-              e.stopPropagation();
-              if (activeSave) updateCurrentSave();
-              else openSaveDialog();
-            }}
-            title={activeSave ? `Update "${activeSave.name}"` : 'Save table'}
-          >
-            <SaveIcon /> {activeSave ? 'Update' : 'Save'}
-          </button>
+          {activeSave ? (
+            <Button variant="outline" size="sm" onClick={updateCurrentSave} title={`Update "${activeSave.name}"`}>
+              <Save /> Update
+            </Button>
+          ) : (
+            <Popover
+              open={saveOpen}
+              onOpenChange={o => {
+                setSaveOpen(o);
+                if (o) { setSaveName(defaultName()); setLoadOpen(false); }
+              }}
+            >
+              <PopoverTrigger render={<Button variant="outline" size="sm" title="Save table" />}>
+                <Save /> Save
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-64">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Save table as
+                </p>
+                <Input
+                  autoFocus
+                  value={saveName}
+                  onChange={e => setSaveName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') confirmSave();
+                    if (e.key === 'Escape') setSaveOpen(false);
+                  }}
+                  placeholder="Table name"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button variant="ghost" size="sm" onClick={() => setSaveOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={confirmSave}>
+                    Save
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
 
           {feedback && (
-            <span
+            <Badge
+              variant="secondary"
               className={[
-                'pointer-events-none absolute left-0 top-full mt-1.5 whitespace-nowrap flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400 transition-opacity duration-300',
+                'pointer-events-none absolute left-0 top-full mt-1.5 whitespace-nowrap transition-opacity duration-300',
                 feedback.visible ? 'opacity-100' : 'opacity-0',
               ].join(' ')}
             >
-              <CheckIcon /> {feedback.text}
-            </span>
-          )}
-
-          {saveOpen && (
-            <div
-              className="absolute left-0 top-full mt-2 z-50 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-3"
-              onClick={e => e.stopPropagation()}
-            >
-              <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">
-                Save table as
-              </p>
-              <input
-                autoFocus
-                value={saveName}
-                onChange={e => setSaveName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') confirmSave();
-                  if (e.key === 'Escape') setSaveOpen(false);
-                }}
-                className="w-full text-sm border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
-                placeholder="Table name"
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setSaveOpen(false)}
-                  className="text-xs px-2.5 py-1 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={confirmSave}
-                  className="text-xs px-3 py-1 rounded-lg bg-blue-500 text-white hover:bg-blue-600 transition-colors"
-                >
-                  Save
-                </button>
-              </div>
-            </div>
+              <Check /> {feedback.text}
+            </Badge>
           )}
         </div>
 
         {/* Load */}
-        <div className="relative">
-          <button
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            onClick={e => { e.stopPropagation(); setLoadOpen(o => !o); setSaveOpen(false); }}
-            title="Load a saved table"
-          >
-            <FolderIcon /> Saved{savedTables.length > 0 ? ` (${savedTables.length})` : ''}
-          </button>
-
-          {loadOpen && (
-            <div
-              className="absolute left-0 top-full mt-2 z-50 w-72 max-h-80 overflow-y-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1.5"
-              onClick={e => e.stopPropagation()}
-            >
-              {savedTables.length === 0 ? (
-                <p className="px-3 py-3 text-xs text-gray-400 dark:text-gray-500">
-                  No saved tables yet. Use Save to create one.
-                </p>
-              ) : (
-                [...savedTables].sort((a, b) => b.savedAt - a.savedAt).map(entry => (
-                  <div
-                    key={entry.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => loadSave(entry)}
-                    onKeyDown={e => { if (e.key === 'Enter') loadSave(entry); }}
-                    className={[
-                      'w-full flex items-center justify-between gap-2 px-3 py-2 text-left cursor-pointer transition-colors',
-                      activeSave?.id === entry.id
-                        ? 'bg-blue-50 dark:bg-blue-950/40'
-                        : 'hover:bg-gray-50 dark:hover:bg-gray-700',
-                    ].join(' ')}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
-                        {entry.name}
-                      </p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        {formatRelative(entry.savedAt)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={e => deleteSave(entry, e)}
-                      className="shrink-0 p-1 rounded text-gray-300 hover:text-red-500 hover:bg-red-50 dark:text-gray-600 dark:hover:text-red-400 dark:hover:bg-red-900/20 transition-colors"
-                      title="Delete"
-                    >
-                      <TrashIcon />
-                    </button>
+        <Popover open={loadOpen} onOpenChange={o => { setLoadOpen(o); if (o) setSaveOpen(false); }}>
+          <PopoverTrigger render={<Button variant="outline" size="sm" title="Load a saved table" />}>
+            <FolderOpen /> Saved{savedTables.length > 0 ? ` (${savedTables.length})` : ''}
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72 max-h-80 overflow-y-auto p-1.5 gap-0">
+            {savedTables.length === 0 ? (
+              <p className="px-2 py-3 text-xs text-muted-foreground">
+                No saved tables yet. Use Save to create one.
+              </p>
+            ) : (
+              [...savedTables].sort((a, b) => b.savedAt - a.savedAt).map(entry => (
+                <div
+                  key={entry.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => loadSave(entry)}
+                  onKeyDown={e => { if (e.key === 'Enter') loadSave(entry); }}
+                  className={[
+                    'w-full flex items-center justify-between gap-2 rounded-md px-2 py-2 text-left cursor-pointer transition-colors',
+                    activeSave?.id === entry.id ? 'bg-accent' : 'hover:bg-accent/60',
+                  ].join(' ')}
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">
+                      {entry.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatRelative(entry.savedAt)}
+                    </p>
                   </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={e => deleteSave(entry, e)}
+                    title="Delete"
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
+              ))
+            )}
+          </PopoverContent>
+        </Popover>
 
         {/* Export */}
-        <button
-          className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          onClick={exportPdf}
-          title="Export the table as a PDF"
-        >
-          <PdfIcon /> Export PDF
-        </button>
+        <Button variant="outline" size="sm" onClick={exportPdf} title="Export the table as a PDF">
+          <FileText /> Export PDF
+        </Button>
 
-        <span className="text-xs text-gray-400 dark:text-gray-500 ml-1 border border-gray-200 dark:border-gray-700 rounded px-1.5 py-0.5">
+        <Badge variant="outline" className="ml-1 text-muted-foreground font-normal">
           Right-click cells for options · Double-click headers to rename
-        </span>
+        </Badge>
 
         {/* Reset button */}
-        <button
-          className="ml-auto flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg border border-red-200 dark:border-red-800 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+        <Button
+          variant="destructive"
+          size="sm"
+          className="ml-auto"
           onClick={() => {
             localStorage.removeItem(storageKey);
             setResetCount(c => c + 1);
           }}
           title="Clear all data and reset table"
         >
-          <ResetIcon /> Reset
-        </button>
+          <RotateCcw /> Reset
+        </Button>
 
-        <button
-          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-800 transition-colors"
-          onClick={() => setIsDark(d => !d)}
-          title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          {isDark ? <SunIcon /> : <MoonIcon />}
-        </button>
+        <Button variant="ghost" size="icon" onClick={() => setIsDark(d => !d)} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+          {isDark ? <Sun /> : <Moon />}
+        </Button>
       </header>
 
       {/* Canvas */}
@@ -388,110 +359,5 @@ export function App() {
         />
       </main>
     </div>
-  );
-}
-
-function GridIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <line x1="3" y1="9" x2="21" y2="9" />
-      <line x1="3" y1="15" x2="21" y2="15" />
-      <line x1="9" y1="3" x2="9" y2="21" />
-      <line x1="15" y1="3" x2="15" y2="21" />
-    </svg>
-  );
-}
-
-function SunIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="4" />
-      <line x1="12" y1="2" x2="12" y2="4" />
-      <line x1="12" y1="20" x2="12" y2="22" />
-      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-      <line x1="2" y1="12" x2="4" y2="12" />
-      <line x1="20" y1="12" x2="22" y2="12" />
-      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-    </svg>
-  );
-}
-
-function MoonIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  );
-}
-
-function ResetIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-    </svg>
-  );
-}
-
-function SaveIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
-      <path d="M17 21v-8H7v8" />
-      <path d="M7 3v5h8" />
-    </svg>
-  );
-}
-
-function FolderIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-    </svg>
-  );
-}
-
-function CheckIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function PdfIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
-      <path d="M14 2v6h6" />
-      <path d="M8 15.5h1.2a1.2 1.2 0 1 0 0-2.4H8v4.8" />
-      <path d="M12.5 13.1v4.8h1a1.8 1.8 0 0 0 1.8-1.8v-1.2a1.8 1.8 0 0 0-1.8-1.8Z" />
-      <path d="M20 13.1h-2.3v4.8" />
-      <path d="M17.7 15.4h1.8" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
-    </svg>
   );
 }

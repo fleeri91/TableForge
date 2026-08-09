@@ -1,7 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { Plus, X } from 'lucide-react';
 import { CELL_COLORS } from '../config/cellColors';
 import { CELL_EMOJIS } from '../config/cellEmojis';
 import type { TableTemplate } from '../config/templates';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -62,10 +67,6 @@ function makeColumn(index: number, width = 140): Column {
 
 const DISTANCES: readonly Distance[] = ['S', 'M', 'L', 'ST'];
 const START_METHODS: readonly StartMethod[] = ['a', 'v'];
-
-// Shared look for both header toggle badges, regardless of their current value.
-const HEADER_BADGE_STYLE =
-  'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:hover:bg-indigo-900';
 
 // Cycles a value through a fixed list; direction -1 goes backward, +1 forward.
 function cycleValue<T>(values: readonly T[], current: T, direction: -1 | 1): T {
@@ -317,13 +318,13 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
 
   return (
     <div className="relative">
-      <div className="inline-flex flex-col overflow-hidden rounded-xl border border-gray-300 dark:border-gray-600 shadow-lg bg-white dark:bg-gray-900">
+      <div className="inline-flex flex-col overflow-hidden rounded-xl border border-border shadow-lg bg-card">
 
         {/* ── Header Row ── */}
-        <div className="flex border-b-2 border-gray-200 dark:border-gray-700 print:border-b-0">
+        <div className="flex border-b-2 border-border print:border-b-0">
           {/* Corner cell */}
           <div
-            className="shrink-0 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 print:border-r-0"
+            className="shrink-0 bg-muted border-r border-border print:border-r-0"
             style={{ width: ROW_NUM_W, height: 38 }}
           />
 
@@ -331,12 +332,12 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
           {columns.map((col, ci) => (
             <div
               key={col.id}
-              className="relative shrink-0 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 print:border-r-0 group"
+              className="relative shrink-0 bg-muted border-r border-border print:border-r-0 group"
               style={{ width: col.width, height: 38 }}
             >
               {editingHeader === col.id ? (
-                <input
-                  className="absolute inset-0 w-full h-full px-2 text-sm font-medium text-center text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 outline-none"
+                <Input
+                  className="absolute inset-0 h-full w-full rounded-none border-0 px-2 text-center text-sm font-medium focus-visible:ring-1"
                   value={col.name}
                   onChange={e => renameColumn(col.id, e.target.value)}
                   onBlur={() => setEditingHeader(null)}
@@ -347,72 +348,77 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
                 />
               ) : (
                 <div
-                  className="flex items-center justify-center gap-1 h-full px-2 text-sm font-semibold text-gray-500 dark:text-gray-400 cursor-default select-none"
+                  className="flex items-center justify-center gap-1 h-full px-2 text-sm font-semibold text-muted-foreground cursor-default select-none"
                   onDoubleClick={() => setEditingHeader(col.id)}
                   title="Double-click to rename"
                 >
                   <span className="truncate">{col.name || colLabel(ci)}</span>
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); cycleDistance(col.id, -1); }}
-                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); cycleDistance(col.id, 1); }}
-                    onDoubleClick={e => e.stopPropagation()}
-                    className={[
-                      'shrink-0 w-8 py-1 rounded-full text-xs font-bold leading-none tracking-wide text-center transition-colors',
-                      HEADER_BADGE_STYLE,
-                    ].join(' ')}
+                  <Badge
+                    variant="secondary"
+                    render={
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); cycleDistance(col.id, -1); }}
+                        onContextMenu={e => { e.preventDefault(); e.stopPropagation(); cycleDistance(col.id, 1); }}
+                        onDoubleClick={e => e.stopPropagation()}
+                      />
+                    }
+                    className="w-8 shrink-0 justify-center font-bold"
                     title={`Distance: ${col.distance} — left-click back, right-click forward`}
                   >
                     {col.distance}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={e => { e.stopPropagation(); cycleStartMethod(col.id, -1); }}
-                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); cycleStartMethod(col.id, 1); }}
-                    onDoubleClick={e => e.stopPropagation()}
-                    className={[
-                      'shrink-0 w-8 py-1 rounded-full text-xs font-bold leading-none tracking-wide text-center transition-colors',
-                      HEADER_BADGE_STYLE,
-                    ].join(' ')}
+                  </Badge>
+                  <Badge
+                    variant="secondary"
+                    render={
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); cycleStartMethod(col.id, -1); }}
+                        onContextMenu={e => { e.preventDefault(); e.stopPropagation(); cycleStartMethod(col.id, 1); }}
+                        onDoubleClick={e => e.stopPropagation()}
+                      />
+                    }
+                    className="w-8 shrink-0 justify-center font-bold"
                     title={`Start method: ${col.startMethod} — left-click back, right-click forward`}
                   >
                     {col.startMethod}
-                  </button>
+                  </Badge>
                 </div>
               )}
 
               {/* Column resize handle */}
               <div
-                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400 transition-colors z-10 print:hidden"
+                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-primary transition-colors z-10 print:hidden"
                 onMouseDown={e => startColResize(e, col.id, col.width)}
               />
             </div>
           ))}
 
           {/* Add column */}
-          <button
-            className="shrink-0 flex items-center justify-center w-10 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 print:hidden"
+          <Button
+            variant="ghost"
+            className="shrink-0 w-10 rounded-none text-muted-foreground print:hidden"
             style={{ height: 38 }}
             onClick={() => addColumn()}
             title="Add column"
           >
-            <PlusIcon size={12} />
-          </button>
+            <Plus className="size-3" />
+          </Button>
         </div>
 
         {/* ── Data rows ── */}
         {rows.map((row, ri) => (
           <div
             key={row.id}
-            className="flex border-b border-gray-100 dark:border-gray-700/60 print:border-b-0 group/row"
+            className="flex border-b border-border/60 print:border-b-0 group/row"
             style={{ height: row.height }}
             onMouseEnter={() => setHoveredRowId(row.id)}
             onMouseLeave={() => setHoveredRowId(null)}
           >
             {/* Row number */}
             <div
-              className={['relative shrink-0 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 print:border-r-0 text-xs text-gray-400 dark:text-gray-500 select-none cursor-default transition-colors',
-                hoveredRowId === row.id ? 'bg-blue-50 dark:bg-blue-950/40' : 'bg-gray-50 dark:bg-gray-800',
+              className={['relative shrink-0 flex items-center justify-center border-r border-border print:border-r-0 text-xs text-muted-foreground select-none cursor-default transition-colors',
+                hoveredRowId === row.id ? 'bg-accent' : 'bg-muted/50',
               ].join(' ')}
               style={{ width: ROW_NUM_W }}
               onContextMenu={e => openCtxMenu(e, row.id, columns[0]?.id ?? '')}
@@ -420,7 +426,7 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
               {ri + 1}
               {/* Row resize handle */}
               <div
-                className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-blue-400 transition-colors z-10 print:hidden"
+                className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-primary transition-colors z-10 print:hidden"
                 onMouseDown={e => startRowResize(e, row.id, row.height)}
               />
             </div>
@@ -436,13 +442,13 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
                 <div
                   key={col.id}
                   className={[
-                    'relative shrink-0 border-r border-gray-100 dark:border-gray-700/60 print:border-r-0 transition-colors',
+                    'relative shrink-0 border-r border-border/60 print:border-r-0 transition-colors',
                     isDisabled
-                      ? 'bg-gray-400 dark:bg-gray-600'
+                      ? 'bg-muted-foreground/40'
                       : isActive
-                        ? 'ring-2 ring-inset ring-blue-500 z-10'
+                        ? 'ring-2 ring-inset ring-primary z-10'
                         : hoveredRowId === row.id
-                          ? 'bg-blue-50/60 dark:bg-blue-950/30'
+                          ? 'bg-accent/60'
                           : '',
                   ].join(' ')}
                   style={{
@@ -463,7 +469,7 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
 
                   <input
                     ref={el => { cellRefs.current[cellKey(row.id, col.id)] = el; }}
-                    className="absolute inset-0 w-full h-full px-2 text-sm text-gray-900 dark:text-gray-100 outline-none bg-transparent disabled:cursor-not-allowed"
+                    className="absolute inset-0 w-full h-full px-2 text-sm text-foreground outline-none bg-transparent disabled:cursor-not-allowed"
                     disabled={isDisabled || hasEmojis}
                     value={getCell(row.id, col.id)}
                     onChange={e => setCell(row.id, col.id, e.target.value)}
@@ -502,16 +508,17 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
         {/* ── Add row ── */}
         <div className="flex print:hidden">
           <div
-            className="shrink-0 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+            className="shrink-0 bg-muted/50 border-r border-border"
             style={{ width: ROW_NUM_W }}
           />
-          <button
-            className="flex-1 flex items-center gap-2 px-3 py-1.5 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          <Button
+            variant="ghost"
+            className="flex-1 justify-start rounded-none text-xs text-muted-foreground"
             onClick={() => addRow()}
           >
-            <PlusIcon size={10} />
+            <Plus className="size-2.5" />
             Add row
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -579,16 +586,6 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function PlusIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 12 12" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-      <line x1="6" y1="1" x2="6" y2="11" />
-      <line x1="1" y1="6" x2="11" y2="6" />
-    </svg>
-  );
-}
-
 function ContextMenu({
   x, y, onClose, items,
 }: {
@@ -599,7 +596,7 @@ function ContextMenu({
 }) {
   return (
     <div
-      className="fixed z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1.5 min-w-50 text-sm"
+      className="fixed z-50 bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
       style={{ left: x, top: y }}
       onClick={e => e.stopPropagation()}
     >
@@ -608,35 +605,27 @@ function ContextMenu({
           const { active, onSelect } = item.colorPicker;
           return (
             <div key={i} className="px-3 pt-2.5 pb-1.5">
-              <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 Cell color
               </p>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {/* Clear */}
                 <button
                   className={[
-                    'w-6 h-6 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110',
-                    active === null
-                      ? 'border-blue-500 scale-110'
-                      : 'border-gray-200 dark:border-gray-600',
+                    'w-6 h-6 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110 bg-background',
+                    active === null ? 'border-primary scale-110' : 'border-border',
                   ].join(' ')}
-                  style={{ background: 'white' }}
                   onClick={() => { onSelect(null); onClose(); }}
                   title="No color"
                 >
-                  <svg width="10" height="10" viewBox="0 0 10 10" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round">
-                    <line x1="1" y1="1" x2="9" y2="9" />
-                    <line x1="9" y1="1" x2="1" y2="9" />
-                  </svg>
+                  <X className="size-2.5 text-muted-foreground" />
                 </button>
                 {CELL_COLORS.map(c => (
                   <button
                     key={c.value}
                     className={[
                       'w-6 h-6 rounded-full border-2 transition-transform hover:scale-110',
-                      active === c.value
-                        ? 'border-blue-500 scale-110'
-                        : 'border-transparent hover:border-gray-300 dark:hover:border-gray-500',
+                      active === c.value ? 'border-primary scale-110' : 'border-transparent hover:border-muted-foreground',
                     ].join(' ')}
                     style={{ backgroundColor: c.value }}
                     onClick={() => { onSelect(c.value); onClose(); }}
@@ -652,7 +641,7 @@ function ContextMenu({
           const { active, onToggle } = item.emojiPicker;
           return (
             <div key={i} className="px-3 pt-2 pb-2.5">
-              <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-2">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 Emojis
               </p>
               <div className="grid grid-cols-5 gap-1">
@@ -661,9 +650,7 @@ function ContextMenu({
                     key={e.value}
                     className={[
                       'w-8 h-8 rounded-lg text-base flex items-center justify-center transition-colors',
-                      active.includes(e.value)
-                        ? 'bg-blue-100 dark:bg-blue-900/40 ring-1 ring-blue-400 dark:ring-blue-500'
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700',
+                      active.includes(e.value) ? 'bg-accent ring-1 ring-primary' : 'hover:bg-accent',
                     ].join(' ')}
                     onClick={() => onToggle(e.value)}
                     title={e.label}
@@ -677,19 +664,17 @@ function ContextMenu({
         }
 
         if (item.divider) {
-          return <div key={i} className="h-px bg-gray-100 dark:bg-gray-700 my-1.5 mx-2" />;
+          return <Separator key={i} className="my-1.5 mx-2" />;
         }
 
         return (
-          <button
+          <Button
             key={i}
+            variant="ghost"
             disabled={item.disabled}
             className={[
-              'w-full text-left px-4 py-1.5 transition-colors',
-              item.disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
-              item.danger
-                ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
-                : 'text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700',
+              'w-full justify-start rounded-none px-4 font-normal',
+              item.danger ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : '',
             ].join(' ')}
             onClick={() => {
               if (!item.disabled) {
@@ -699,7 +684,7 @@ function ContextMenu({
             }}
           >
             {item.label}
-          </button>
+          </Button>
         );
       })}
     </div>
