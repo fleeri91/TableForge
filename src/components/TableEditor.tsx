@@ -5,10 +5,15 @@ import type { TableTemplate } from '../config/templates';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
+type Distance = 'S' | 'M' | 'L' | 'ST';
+type StartMethod = 'a' | 'v';
+
 interface Column {
   id: string;
   name: string;
   width: number;
+  distance: Distance;
+  startMethod: StartMethod;
 }
 
 interface Row {
@@ -52,7 +57,20 @@ function colLabel(index: number): string {
 }
 
 function makeColumn(index: number, width = 140): Column {
-  return { id: uid(), name: colLabel(index), width };
+  return { id: uid(), name: colLabel(index), width, distance: 'M', startMethod: 'a' };
+}
+
+const DISTANCES: readonly Distance[] = ['S', 'M', 'L', 'ST'];
+const START_METHODS: readonly StartMethod[] = ['a', 'v'];
+
+// Shared look for both header toggle badges, regardless of their current value.
+const HEADER_BADGE_STYLE =
+  'bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/50 dark:text-indigo-300 dark:hover:bg-indigo-900';
+
+// Cycles a value through a fixed list; direction -1 goes backward, +1 forward.
+function cycleValue<T>(values: readonly T[], current: T, direction: -1 | 1): T {
+  const idx = values.indexOf(current);
+  return values[(idx + direction + values.length) % values.length];
 }
 
 function makeRow(height = 36): Row {
@@ -77,9 +95,18 @@ function loadSaved(key: string) {
 export function TableEditor({ template, storageKey }: { template?: TableTemplate | null; storageKey: string }) {
   const [columns, setColumns] = useState<Column[]>(() => {
     const s = loadSaved(storageKey);
-    if (Array.isArray(s?.columns) && (s!.columns as Column[]).length > 0) return s!.columns as Column[];
+    if (Array.isArray(s?.columns) && (s!.columns as Column[]).length > 0) {
+      // Older saves may predate the distance/startMethod fields — default them.
+      return (s!.columns as Column[]).map(c => ({
+        ...c,
+        distance: c.distance ?? 'M',
+        startMethod: c.startMethod ?? 'a',
+      }));
+    }
     return template
-      ? Array.from({ length: template.columns }, (_, i) => ({ id: uid(), name: `${template.columnPrefix}:${i + 1}`, width: 140 }))
+      ? Array.from({ length: template.columns }, (_, i) => ({
+          id: uid(), name: `${template.columnPrefix}:${i + 1}`, width: 140, distance: 'M' as Distance, startMethod: 'a' as StartMethod,
+        }))
       : Array.from({ length: 4 }, (_, i) => makeColumn(i));
   });
   const [rows, setRows] = useState<Row[]>(() => {
@@ -167,6 +194,16 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
 
   const renameColumn = (colId: string, name: string) =>
     setColumns(prev => prev.map(c => c.id === colId ? { ...c, name } : c));
+
+  const cycleDistance = (colId: string, direction: -1 | 1) =>
+    setColumns(prev => prev.map(c =>
+      c.id === colId ? { ...c, distance: cycleValue(DISTANCES, c.distance, direction) } : c
+    ));
+
+  const cycleStartMethod = (colId: string, direction: -1 | 1) =>
+    setColumns(prev => prev.map(c =>
+      c.id === colId ? { ...c, startMethod: cycleValue(START_METHODS, c.startMethod, direction) } : c
+    ));
 
   const resizeColumn = (colId: string, width: number) =>
     setColumns(prev =>
@@ -283,10 +320,10 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
       <div className="inline-flex flex-col overflow-hidden rounded-xl border border-gray-300 dark:border-gray-600 shadow-lg bg-white dark:bg-gray-900">
 
         {/* ── Header Row ── */}
-        <div className="flex border-b-2 border-gray-200 dark:border-gray-700">
+        <div className="flex border-b-2 border-gray-200 dark:border-gray-700 print:border-b-0">
           {/* Corner cell */}
           <div
-            className="shrink-0 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
+            className="shrink-0 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 print:border-r-0"
             style={{ width: ROW_NUM_W, height: 38 }}
           />
 
@@ -294,7 +331,7 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
           {columns.map((col, ci) => (
             <div
               key={col.id}
-              className="relative shrink-0 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 group"
+              className="relative shrink-0 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 print:border-r-0 group"
               style={{ width: col.width, height: 38 }}
             >
               {editingHeader === col.id ? (
@@ -310,17 +347,43 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
                 />
               ) : (
                 <div
-                  className="flex items-center justify-center h-full px-2 text-sm font-semibold text-gray-500 dark:text-gray-400 cursor-default select-none"
+                  className="flex items-center justify-center gap-1 h-full px-2 text-sm font-semibold text-gray-500 dark:text-gray-400 cursor-default select-none"
                   onDoubleClick={() => setEditingHeader(col.id)}
                   title="Double-click to rename"
                 >
-                  {col.name || colLabel(ci)}
+                  <span className="truncate">{col.name || colLabel(ci)}</span>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); cycleDistance(col.id, -1); }}
+                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); cycleDistance(col.id, 1); }}
+                    onDoubleClick={e => e.stopPropagation()}
+                    className={[
+                      'shrink-0 w-8 py-1 rounded-full text-xs font-bold leading-none tracking-wide text-center transition-colors',
+                      HEADER_BADGE_STYLE,
+                    ].join(' ')}
+                    title={`Distance: ${col.distance} — left-click back, right-click forward`}
+                  >
+                    {col.distance}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={e => { e.stopPropagation(); cycleStartMethod(col.id, -1); }}
+                    onContextMenu={e => { e.preventDefault(); e.stopPropagation(); cycleStartMethod(col.id, 1); }}
+                    onDoubleClick={e => e.stopPropagation()}
+                    className={[
+                      'shrink-0 w-8 py-1 rounded-full text-xs font-bold leading-none tracking-wide text-center transition-colors',
+                      HEADER_BADGE_STYLE,
+                    ].join(' ')}
+                    title={`Start method: ${col.startMethod} — left-click back, right-click forward`}
+                  >
+                    {col.startMethod}
+                  </button>
                 </div>
               )}
 
               {/* Column resize handle */}
               <div
-                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400 transition-colors z-10"
+                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-blue-400 transition-colors z-10 print:hidden"
                 onMouseDown={e => startColResize(e, col.id, col.width)}
               />
             </div>
@@ -328,7 +391,7 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
 
           {/* Add column */}
           <button
-            className="shrink-0 flex items-center justify-center w-10 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+            className="shrink-0 flex items-center justify-center w-10 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 print:hidden"
             style={{ height: 38 }}
             onClick={() => addColumn()}
             title="Add column"
@@ -341,14 +404,14 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
         {rows.map((row, ri) => (
           <div
             key={row.id}
-            className="flex border-b border-gray-100 dark:border-gray-700/60 group/row"
+            className="flex border-b border-gray-100 dark:border-gray-700/60 print:border-b-0 group/row"
             style={{ height: row.height }}
             onMouseEnter={() => setHoveredRowId(row.id)}
             onMouseLeave={() => setHoveredRowId(null)}
           >
             {/* Row number */}
             <div
-              className={['relative shrink-0 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500 select-none cursor-default transition-colors',
+              className={['relative shrink-0 flex items-center justify-center border-r border-gray-200 dark:border-gray-700 print:border-r-0 text-xs text-gray-400 dark:text-gray-500 select-none cursor-default transition-colors',
                 hoveredRowId === row.id ? 'bg-blue-50 dark:bg-blue-950/40' : 'bg-gray-50 dark:bg-gray-800',
               ].join(' ')}
               style={{ width: ROW_NUM_W }}
@@ -357,7 +420,7 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
               {ri + 1}
               {/* Row resize handle */}
               <div
-                className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-blue-400 transition-colors z-10"
+                className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-blue-400 transition-colors z-10 print:hidden"
                 onMouseDown={e => startRowResize(e, row.id, row.height)}
               />
             </div>
@@ -373,7 +436,7 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
                 <div
                   key={col.id}
                   className={[
-                    'relative shrink-0 border-r border-gray-100 dark:border-gray-700/60 transition-colors',
+                    'relative shrink-0 border-r border-gray-100 dark:border-gray-700/60 print:border-r-0 transition-colors',
                     isDisabled
                       ? 'bg-gray-400 dark:bg-gray-600'
                       : isActive
@@ -437,7 +500,7 @@ export function TableEditor({ template, storageKey }: { template?: TableTemplate
         ))}
 
         {/* ── Add row ── */}
-        <div className="flex">
+        <div className="flex print:hidden">
           <div
             className="shrink-0 bg-gray-50 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700"
             style={{ width: ROW_NUM_W }}

@@ -185,21 +185,9 @@ export function App() {
   }
 
   // Print just the table (toolbar hidden via print:hidden) using the browser's
-  // native "Save as PDF" — no extra dependencies needed. Forces light mode for
-  // the printed page regardless of the on-screen theme, for a clean document.
+  // native "Save as PDF" — no extra dependencies needed. The current light/dark
+  // theme carries over as-is, since print-color-adjust keeps background colors.
   function exportPdf() {
-    const root = document.documentElement;
-    const wasDark = root.classList.contains('dark');
-    let restored = false;
-    const restore = () => {
-      if (restored) return;
-      restored = true;
-      if (wasDark) root.classList.add('dark');
-      window.removeEventListener('afterprint', restore);
-    };
-    if (wasDark) root.classList.remove('dark');
-    window.addEventListener('afterprint', restore);
-    setTimeout(restore, 5000); // safety net if the browser never fires afterprint
     window.print();
   }
 
