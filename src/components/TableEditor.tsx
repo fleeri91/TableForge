@@ -11,7 +11,7 @@ import { Separator } from "@/components/ui/separator";
 // ── Types ──────────────────────────────────────────────────────────────────
 
 type Distance = "S" | "M" | "L" | "ST";
-type StartMethod = "a" | "v";
+type StartMethod = "A" | "V";
 
 interface Column {
   id: string;
@@ -71,12 +71,12 @@ function makeColumn(index: number, width = 140): Column {
     name: colLabel(index),
     width,
     distance: "M",
-    startMethod: "a",
+    startMethod: "A",
   };
 }
 
 const DISTANCES: readonly Distance[] = ["S", "M", "L", "ST"];
-const START_METHODS: readonly StartMethod[] = ["a", "v"];
+const START_METHODS: readonly StartMethod[] = ["A", "V"];
 
 // Cycles a value through a fixed list; direction -1 goes backward, +1 forward.
 function cycleValue<T>(values: readonly T[], current: T, direction: -1 | 1): T {
@@ -123,7 +123,7 @@ export function TableEditor({
       return (s!.columns as Column[]).map((c) => ({
         ...c,
         distance: c.distance ?? "M",
-        startMethod: c.startMethod ?? "a",
+        startMethod: c.startMethod ?? "A",
       }));
     }
     return template
@@ -132,7 +132,7 @@ export function TableEditor({
           name: `${template.columnPrefix}:${i + 1}`,
           width: 140,
           distance: "M" as Distance,
-          startMethod: "a" as StartMethod,
+          startMethod: "A" as StartMethod,
         }))
       : Array.from({ length: 4 }, (_, i) => makeColumn(i));
   });
