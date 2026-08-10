@@ -112,9 +112,15 @@ function loadSaved(key: string) {
 export function TableEditor({
   template,
   storageKey,
+  accentColor = "var(--gray-9)",
+  accentSoft = "var(--gray-3)",
+  accentBorder = "var(--gray-7)",
 }: {
   template?: TableTemplate | null;
   storageKey: string;
+  accentColor?: string;
+  accentSoft?: string;
+  accentBorder?: string;
 }) {
   const [columns, setColumns] = useState<Column[]>(() => {
     const s = loadSaved(storageKey);
@@ -418,12 +424,21 @@ export function TableEditor({
 
   return (
     <div className="relative">
-      <div className="inline-flex flex-col overflow-hidden rounded-xl border border-border shadow-lg bg-card">
+      <div
+        className="inline-flex flex-col overflow-hidden rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card"
+        style={
+          {
+            "--tf-accent": accentColor,
+            "--tf-soft": accentSoft,
+            "--tf-border": accentBorder,
+          } as React.CSSProperties
+        }
+      >
         {/* ── Header Row ── */}
-        <div className="flex border-b-2 border-border print:border-b-0">
+        <div className="flex border-b-2 border-(--tf-border) print:border-b-0">
           {/* Corner cell */}
           <div
-            className="shrink-0 bg-muted border-r border-border print:border-r-0"
+            className="shrink-0 bg-(--tf-soft) border-r border-(--tf-border) print:border-r-0"
             style={{ width: ROW_NUM_W, height: 38 }}
           />
 
@@ -431,7 +446,7 @@ export function TableEditor({
           {columns.map((col, ci) => (
             <div
               key={col.id}
-              className="relative shrink-0 bg-muted border-r border-border print:border-r-0 group"
+              className="relative shrink-0 bg-(--tf-soft) border-r border-(--tf-border) print:border-r-0 group"
               style={{ width: col.width, height: 38 }}
             >
               {editingHeader === col.id ? (
@@ -470,7 +485,7 @@ export function TableEditor({
                         onDoubleClick={(e) => e.stopPropagation()}
                       />
                     }
-                    className="rounded-sm w-6 h-6 shrink-0 justify-center font-bold"
+                    className="rounded-sm w-6 h-6 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
                   >
                     {col.distance}
                   </Badge>
@@ -491,7 +506,7 @@ export function TableEditor({
                         onDoubleClick={(e) => e.stopPropagation()}
                       />
                     }
-                    className="rounded-sm w-6 h-6 shrink-0 justify-center font-bold"
+                    className="rounded-sm w-6 h-6 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
                   >
                     {col.startMethod}
                   </Badge>
@@ -500,7 +515,7 @@ export function TableEditor({
 
               {/* Column resize handle */}
               <div
-                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-primary transition-colors z-10 print:hidden"
+                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-(--tf-accent) transition-colors z-10 print:hidden"
                 onMouseDown={(e) => startColResize(e, col.id, col.width)}
               />
             </div>
@@ -509,7 +524,7 @@ export function TableEditor({
           {/* Add column */}
           <Button
             variant="ghost"
-            className="shrink-0 w-10 rounded-none text-muted-foreground print:hidden"
+            className="shrink-0 w-10 rounded-none text-muted-foreground hover:text-(--tf-accent) print:hidden"
             style={{ height: 38 }}
             onClick={() => addColumn()}
             title="Add column"
@@ -530,8 +545,8 @@ export function TableEditor({
             {/* Row number */}
             <div
               className={[
-                "relative shrink-0 flex items-center justify-center border-r border-border print:border-r-0 text-xs text-muted-foreground select-none cursor-default transition-colors",
-                hoveredRowId === row.id ? "bg-accent" : "bg-muted/50",
+                "relative shrink-0 flex items-center justify-center border-r border-(--tf-border) print:border-r-0 text-xs text-muted-foreground select-none cursor-default transition-colors",
+                hoveredRowId === row.id ? "bg-(--tf-accent)/15" : "bg-(--tf-soft)",
               ].join(" ")}
               style={{ width: ROW_NUM_W }}
               onContextMenu={(e) =>
@@ -541,7 +556,7 @@ export function TableEditor({
               {ri + 1}
               {/* Row resize handle */}
               <div
-                className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-primary transition-colors z-10 print:hidden"
+                className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-(--tf-accent) transition-colors z-10 print:hidden"
                 onMouseDown={(e) => startRowResize(e, row.id, row.height)}
               />
             </div>
@@ -561,9 +576,9 @@ export function TableEditor({
                     isDisabled
                       ? "bg-muted-foreground/40"
                       : isActive
-                        ? "ring-2 ring-inset ring-primary z-10"
+                        ? "ring-2 ring-inset ring-(--tf-accent) z-10"
                         : hoveredRowId === row.id
-                          ? "bg-accent/60"
+                          ? "bg-(--tf-accent)/10"
                           : "",
                   ].join(" ")}
                   style={{
@@ -635,12 +650,12 @@ export function TableEditor({
         {/* ── Add row ── */}
         <div className="flex print:hidden">
           <div
-            className="shrink-0 bg-muted/50 border-r border-border"
+            className="shrink-0 bg-(--tf-soft) border-r border-(--tf-border)"
             style={{ width: ROW_NUM_W }}
           />
           <Button
             variant="ghost"
-            className="flex-1 justify-start rounded-none text-xs text-muted-foreground"
+            className="flex-1 justify-start rounded-none text-xs text-muted-foreground hover:text-(--tf-accent)"
             onClick={() => addRow()}
           >
             <Plus className="size-2.5" />

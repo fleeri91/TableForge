@@ -3,6 +3,24 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 
+/* Game-type accent colors — Radix color scales, keyed by game type in
+   src/config/gameTypes.ts. -dark.css files already target ".dark", matching
+   this project's class-based dark mode convention. */
+@import "@radix-ui/colors/blue.css";
+@import "@radix-ui/colors/blue-dark.css";
+@import "@radix-ui/colors/jade.css";
+@import "@radix-ui/colors/jade-dark.css";
+@import "@radix-ui/colors/purple.css";
+@import "@radix-ui/colors/purple-dark.css";
+@import "@radix-ui/colors/orange.css";
+@import "@radix-ui/colors/orange-dark.css";
+@import "@radix-ui/colors/red.css";
+@import "@radix-ui/colors/red-dark.css";
+@import "@radix-ui/colors/cyan.css";
+@import "@radix-ui/colors/cyan-dark.css";
+@import "@radix-ui/colors/gray.css";
+@import "@radix-ui/colors/gray-dark.css";
+
 @custom-variant dark (&:is(.dark *));
 
 /* Use class-based dark mode (.dark on <html>) instead of prefers-color-scheme */

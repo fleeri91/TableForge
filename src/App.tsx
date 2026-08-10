@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Grid3x3, Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Check } from 'lucide-react';
 import { TableEditor } from './components/TableEditor';
 import { TABLE_TEMPLATES, type TableTemplate } from './config/templates';
+import { getGameTypeColor } from './config/gameTypes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -356,6 +357,9 @@ export function App() {
           key={`${storageKey}-${resetCount}`}
           template={activeTemplate}
           storageKey={storageKey}
+          accentColor={getGameTypeColor(activeTemplate?.id ?? BLANK_TEMPLATE)}
+          accentSoft={getGameTypeColor(activeTemplate?.id ?? BLANK_TEMPLATE, 3)}
+          accentBorder={getGameTypeColor(activeTemplate?.id ?? BLANK_TEMPLATE, 7)}
         />
       </main>
     </div>
