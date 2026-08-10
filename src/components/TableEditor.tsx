@@ -12,6 +12,12 @@ import { Separator } from "@/components/ui/separator";
 
 type Distance = "S" | "M" | "L" | "ST";
 type StartMethod = "A" | "V";
+type HandicapPosition = "above" | "below";
+
+interface Handicap {
+  meters: number;
+  position: HandicapPosition;
+}
 
 interface Column {
   id: string;
@@ -49,7 +55,14 @@ interface MenuItem {
     active: string[];
     onToggle: (emoji: string) => void;
   };
+  handicapPicker?: {
+    active: Handicap | null;
+    onSet: (meters: number, position: HandicapPosition) => void;
+    onClear: () => void;
+  };
 }
+
+const HANDICAP_PRESETS = [20, 40, 60, 80];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -150,6 +163,10 @@ export function TableEditor({
     () =>
       (loadSaved(storageKey)?.cellDisabled as Record<string, boolean>) ?? {},
   );
+  const [cellHandicaps, setCellHandicaps] = useState<Record<string, Handicap>>(
+    () =>
+      (loadSaved(storageKey)?.cellHandicaps as Record<string, Handicap>) ?? {},
+  );
   const [activeCell, setActiveCell] = useState<{
     rowId: string;
     colId: string;
@@ -168,12 +185,22 @@ export function TableEditor({
           cellColors,
           cellEmojis,
           cellDisabled,
+          cellHandicaps,
         }),
       );
     } catch {
       /* storage full or unavailable */
     }
-  }, [storageKey, columns, rows, cells, cellColors, cellEmojis, cellDisabled]);
+  }, [
+    storageKey,
+    columns,
+    rows,
+    cells,
+    cellColors,
+    cellEmojis,
+    cellDisabled,
+    cellHandicaps,
+  ]);
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
@@ -221,6 +248,26 @@ export function TableEditor({
         return rest;
       }
       return { ...prev, [k]: true };
+    });
+
+  const getCellHandicap = (rId: string, cId: string) =>
+    cellHandicaps[cellKey(rId, cId)] ?? null;
+  const setCellHandicap = (
+    rId: string,
+    cId: string,
+    meters: number,
+    position: HandicapPosition,
+  ) =>
+    setCellHandicaps((prev) => ({
+      ...prev,
+      [cellKey(rId, cId)]: { meters, position },
+    }));
+  const clearCellHandicap = (rId: string, cId: string) =>
+    setCellHandicaps((prev) => {
+      const k = cellKey(rId, cId);
+      if (!(k in prev)) return prev;
+      const { [k]: _, ...rest } = prev;
+      return rest;
     });
 
   // ── Column operations ─────────────────────────────────────────────────────
@@ -404,17 +451,17 @@ export function TableEditor({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="relative">
-      <div
-        className="inline-flex flex-col overflow-hidden rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card"
-        style={
-          {
-            "--tf-accent": accentColor,
-            "--tf-soft": accentSoft,
-            "--tf-border": accentBorder,
-          } as React.CSSProperties
-        }
-      >
+    <div
+      className="relative"
+      style={
+        {
+          "--tf-accent": accentColor,
+          "--tf-soft": accentSoft,
+          "--tf-border": accentBorder,
+        } as React.CSSProperties
+      }
+    >
+      <div className="inline-flex flex-col overflow-hidden rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card">
         {/* ── Header Row ── */}
         <div className="flex border-b-2 border-(--tf-border) print:border-b-0">
           {/* Corner cell */}
@@ -538,6 +585,7 @@ export function TableEditor({
               const isDisabled = isCellDisabled(row.id, col.id);
               const emojis = getCellEmojis(row.id, col.id);
               const hasEmojis = emojis.length > 0;
+              const handicap = getCellHandicap(row.id, col.id);
               return (
                 <div
                   key={col.id}
@@ -568,6 +616,22 @@ export function TableEditor({
                           {e}
                         </span>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Handicap badge — straddles the cell's top or bottom edge */}
+                  {handicap && (
+                    <div
+                      className={[
+                        "absolute inset-x-0 flex justify-center pointer-events-none z-20",
+                        handicap.position === "above"
+                          ? "top-0 -translate-y-1/2"
+                          : "bottom-0 translate-y-1/2",
+                      ].join(" ")}
+                    >
+                      <span className="rounded-full bg-(--tf-accent) text-white text-[9px] font-bold leading-none px-1.5 py-0.5 shadow-sm whitespace-nowrap">
+                        +{handicap.meters}m
+                      </span>
                     </div>
                   )}
 
@@ -656,6 +720,14 @@ export function TableEditor({
                 active: getCellEmojis(ctxMenu.rowId, ctxMenu.colId),
                 onToggle: (emoji) =>
                   toggleCellEmoji(ctxMenu.rowId, ctxMenu.colId, emoji),
+              },
+            },
+            {
+              handicapPicker: {
+                active: getCellHandicap(ctxMenu.rowId, ctxMenu.colId),
+                onSet: (meters, position) =>
+                  setCellHandicap(ctxMenu.rowId, ctxMenu.colId, meters, position),
+                onClear: () => clearCellHandicap(ctxMenu.rowId, ctxMenu.colId),
               },
             },
             {
@@ -787,6 +859,57 @@ function ContextMenu({
                   </button>
                 ))}
               </div>
+            </div>
+          );
+        }
+
+        if (item.handicapPicker) {
+          const { active, onSet, onClear } = item.handicapPicker;
+          return (
+            <div key={i} className="px-3 pt-2.5 pb-1.5">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Handicap
+                </p>
+                {active && (
+                  <button
+                    className="text-[11px] text-muted-foreground hover:text-destructive"
+                    onClick={() => {
+                      onClear();
+                      onClose();
+                    }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {(["above", "below"] as const).map((position) => (
+                <div key={position} className="flex items-center gap-1.5 mb-1.5 last:mb-0">
+                  <span className="w-11 shrink-0 text-xs text-muted-foreground capitalize">
+                    {position}
+                  </span>
+                  {HANDICAP_PRESETS.map((meters) => {
+                    const isActive = active?.position === position && active.meters === meters;
+                    return (
+                      <button
+                        key={meters}
+                        className={[
+                          "h-6 px-1.5 rounded-md text-[11px] font-medium transition-colors",
+                          isActive
+                            ? "bg-(--tf-accent) text-white"
+                            : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                        ].join(" ")}
+                        onClick={() => {
+                          onSet(meters, position);
+                          onClose();
+                        }}
+                      >
+                        {meters}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           );
         }
