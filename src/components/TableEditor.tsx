@@ -65,16 +65,6 @@ function colLabel(index: number): string {
   );
 }
 
-function makeColumn(index: number, width = 140): Column {
-  return {
-    id: uid(),
-    name: colLabel(index),
-    width,
-    distance: "M",
-    startMethod: "A",
-  };
-}
-
 const DISTANCES: readonly Distance[] = ["S", "M", "L", "ST"];
 const START_METHODS: readonly StartMethod[] = ["A", "V"];
 
@@ -95,6 +85,7 @@ function cellKey(rowId: string, colId: string) {
 const ROW_NUM_W = 44;
 const MIN_COL_W = 48;
 const MIN_ROW_H = 28;
+const MAX_ROWS = 15;
 
 // ── TableEditor ────────────────────────────────────────────────────────────
 
@@ -116,7 +107,7 @@ export function TableEditor({
   accentSoft = "var(--gray-3)",
   accentBorder = "var(--gray-7)",
 }: {
-  template?: TableTemplate | null;
+  template: TableTemplate;
   storageKey: string;
   accentColor?: string;
   accentSoft?: string;
@@ -132,23 +123,19 @@ export function TableEditor({
         startMethod: c.startMethod ?? "A",
       }));
     }
-    return template
-      ? Array.from({ length: template.columns }, (_, i) => ({
-          id: uid(),
-          name: `${template.columnPrefix}:${i + 1}`,
-          width: 140,
-          distance: "M" as Distance,
-          startMethod: "A" as StartMethod,
-        }))
-      : Array.from({ length: 4 }, (_, i) => makeColumn(i));
+    return Array.from({ length: template.columns }, (_, i) => ({
+      id: uid(),
+      name: `${template.columnPrefix}:${i + 1}`,
+      width: 140,
+      distance: "M" as Distance,
+      startMethod: "A" as StartMethod,
+    }));
   });
   const [rows, setRows] = useState<Row[]>(() => {
     const s = loadSaved(storageKey);
     if (Array.isArray(s?.rows) && (s!.rows as Row[]).length > 0)
       return s!.rows as Row[];
-    return Array.from({ length: template ? template.rows : 6 }, () =>
-      makeRow(),
-    );
+    return Array.from({ length: template.rows }, () => makeRow());
   });
   const [cells, setCells] = useState<Cells>(
     () => (loadSaved(storageKey)?.cells as Cells) ?? {},
@@ -237,16 +224,7 @@ export function TableEditor({
     });
 
   // ── Column operations ─────────────────────────────────────────────────────
-
-  const addColumn = (afterIdx?: number) => {
-    setColumns((prev) => {
-      const idx = afterIdx !== undefined ? afterIdx + 1 : prev.length;
-      const col = makeColumn(idx);
-      const next = [...prev];
-      next.splice(idx, 0, col);
-      return next;
-    });
-  };
+  // Columns are fixed by the template (one per race) — no add, only delete.
 
   const deleteColumn = (colId: string) => {
     if (columns.length <= 1) return;
@@ -295,9 +273,12 @@ export function TableEditor({
     );
 
   // ── Row operations ────────────────────────────────────────────────────────
+  // Rows cap at MAX_ROWS (the largest a template ever starts with) — adding
+  // is only ever "restoring" capacity freed up by a previous delete.
 
   const addRow = (afterIdx?: number) => {
     setRows((prev) => {
+      if (prev.length >= MAX_ROWS) return prev;
       const idx = afterIdx !== undefined ? afterIdx + 1 : prev.length;
       const row = makeRow();
       const next = [...prev];
@@ -520,17 +501,6 @@ export function TableEditor({
               />
             </div>
           ))}
-
-          {/* Add column */}
-          <Button
-            variant="ghost"
-            className="shrink-0 w-10 rounded-none text-muted-foreground hover:text-(--tf-accent) print:hidden"
-            style={{ height: 38 }}
-            onClick={() => addColumn()}
-            title="Add column"
-          >
-            <Plus className="size-3" />
-          </Button>
         </div>
 
         {/* ── Data rows ── */}
@@ -648,20 +618,23 @@ export function TableEditor({
         ))}
 
         {/* ── Add row ── */}
-        <div className="flex print:hidden">
-          <div
-            className="shrink-0 bg-(--tf-soft) border-r border-(--tf-border)"
-            style={{ width: ROW_NUM_W }}
-          />
-          <Button
-            variant="ghost"
-            className="flex-1 justify-start rounded-none text-xs text-muted-foreground hover:text-(--tf-accent)"
-            onClick={() => addRow()}
-          >
-            <Plus className="size-2.5" />
-            Add row
-          </Button>
-        </div>
+        {/* Only shown once a row has been deleted, to restore capacity back up to MAX_ROWS. */}
+        {rows.length < MAX_ROWS && (
+          <div className="flex print:hidden">
+            <div
+              className="shrink-0 bg-(--tf-soft) border-r border-(--tf-border)"
+              style={{ width: ROW_NUM_W }}
+            />
+            <Button
+              variant="ghost"
+              className="flex-1 justify-start rounded-none text-xs text-muted-foreground hover:text-(--tf-accent)"
+              onClick={() => addRow()}
+            >
+              <Plus className="size-2.5" />
+              Add row
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* ── Context Menu ── */}
@@ -696,11 +669,13 @@ export function TableEditor({
               label: "Insert row above",
               onClick: () =>
                 addRow(rows.findIndex((r) => r.id === ctxMenu.rowId) - 1),
+              disabled: rows.length >= MAX_ROWS,
             },
             {
               label: "Insert row below",
               onClick: () =>
                 addRow(rows.findIndex((r) => r.id === ctxMenu.rowId)),
+              disabled: rows.length >= MAX_ROWS,
             },
             {
               label: "Delete row",
@@ -709,16 +684,6 @@ export function TableEditor({
               disabled: rows.length <= 1,
             },
             { divider: true },
-            {
-              label: "Insert column left",
-              onClick: () =>
-                addColumn(columns.findIndex((c) => c.id === ctxMenu.colId) - 1),
-            },
-            {
-              label: "Insert column right",
-              onClick: () =>
-                addColumn(columns.findIndex((c) => c.id === ctxMenu.colId)),
-            },
             {
               label: "Delete column",
               onClick: () => deleteColumn(ctxMenu.colId),

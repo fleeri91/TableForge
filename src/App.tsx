@@ -30,7 +30,6 @@ type ActiveSlot =
   | { kind: 'save'; saveId: string };
 
 const REGISTRY_KEY = 'tableforge:registry';
-const BLANK_TEMPLATE = 'blank';
 
 function uid() { return Math.random().toString(36).slice(2, 9); }
 
@@ -68,12 +67,7 @@ export function App() {
   const [saveName, setSaveName] = useState('');
   const [feedback, setFeedback] = useState<{ text: string; visible: boolean } | null>(null);
   const feedbackTimers = useRef<{ hide?: number; clear?: number }>({});
-
-  const activeSave = activeSlot.kind === 'save'
-    ? savedTables.find(s => s.id === activeSlot.saveId) ?? null
-    : null;
-  const draftKey = `tableforge-${activeTemplate?.id ?? 'blank'}`;
-  const storageKey = activeSave ? draftKeyForSave(activeSave.id) : draftKey;
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
@@ -91,6 +85,32 @@ export function App() {
     catch { /* storage full or unavailable */ }
   }, [savedTables]);
 
+  // Every table belongs to a game type, so the very first thing a session
+  // does is pick one — there's no "blank" table anymore.
+  if (!started || !activeTemplate) {
+    return (
+      <StartupScreen
+        savedTables={savedTables}
+        onChoose={t => {
+          setActiveTemplate(t);
+          setActiveSlot({ kind: 'draft', templateId: t.id });
+          setStarted(true);
+        }}
+        onOpenSave={loadSave}
+      />
+    );
+  }
+
+  // Aliased so the functions below (hoisted declarations, so TS can't narrow
+  // `activeTemplate` inside them) see the non-null type too.
+  const template = activeTemplate;
+
+  const activeSave = activeSlot.kind === 'save'
+    ? savedTables.find(s => s.id === activeSlot.saveId) ?? null
+    : null;
+  const draftKey = `tableforge-${template.id}`;
+  const storageKey = activeSave ? draftKeyForSave(activeSave.id) : draftKey;
+
   function flashFeedback(text: string) {
     if (feedbackTimers.current.hide) window.clearTimeout(feedbackTimers.current.hide);
     if (feedbackTimers.current.clear) window.clearTimeout(feedbackTimers.current.clear);
@@ -102,8 +122,7 @@ export function App() {
   }
 
   function defaultName() {
-    const label = activeTemplate?.label ?? 'Blank';
-    return `${label} — ${new Date().toLocaleDateString()}`;
+    return `${template.label} — ${new Date().toLocaleDateString()}`;
   }
 
   // Update the already-loaded save in place — no naming step, since there's
@@ -141,7 +160,7 @@ export function App() {
       }
     }
     const entry: SavedTable = {
-      id, name, templateId: activeTemplate?.id ?? null, dataKey, savedAt: Date.now(),
+      id, name, templateId: template.id, dataKey, savedAt: Date.now(),
     };
     setSavedTables(prev => [entry, ...prev]);
     setActiveSlot({ kind: 'save', saveId: id });
@@ -157,10 +176,13 @@ export function App() {
       else localStorage.removeItem(draftKeyForSave(entry.id));
     } catch { /* storage full or unavailable */ }
 
-    const t = TABLE_TEMPLATES.find(t => t.id === entry.templateId) ?? null;
+    // Falls back to the first template for saves made before "Blank" was
+    // removed (they may carry a null templateId).
+    const t = TABLE_TEMPLATES.find(t => t.id === entry.templateId) ?? TABLE_TEMPLATES[0];
     setActiveTemplate(t);
     setActiveSlot({ kind: 'save', saveId: entry.id });
     setLoadOpen(false);
+    setStarted(true); // also used to jump straight in from the startup screen
     setResetCount(c => c + 1); // force remount even if this save was already active
   }
 
@@ -171,8 +193,9 @@ export function App() {
     localStorage.removeItem(draftKeyForSave(entry.id));
     setSavedTables(prev => prev.filter(s => s.id !== entry.id));
     if (activeSlot.kind === 'save' && activeSlot.saveId === entry.id) {
-      setActiveTemplate(null);
-      setActiveSlot({ kind: 'draft', templateId: null });
+      const fallback = TABLE_TEMPLATES.find(t => t.id === entry.templateId) ?? template;
+      setActiveTemplate(fallback);
+      setActiveSlot({ kind: 'draft', templateId: fallback.id });
     }
   }
 
@@ -200,19 +223,19 @@ export function App() {
             Template
           </span>
           <Select
-            items={{ [BLANK_TEMPLATE]: 'Blank', ...Object.fromEntries(TABLE_TEMPLATES.map(t => [t.id, t.label])) }}
-            value={activeTemplate?.id ?? BLANK_TEMPLATE}
+            items={Object.fromEntries(TABLE_TEMPLATES.map(t => [t.id, t.label]))}
+            value={template.id}
             onValueChange={v => {
-              const t = TABLE_TEMPLATES.find(t => t.id === v) ?? null;
+              const t = TABLE_TEMPLATES.find(t => t.id === v);
+              if (!t) return;
               setActiveTemplate(t);
-              setActiveSlot({ kind: 'draft', templateId: t?.id ?? null });
+              setActiveSlot({ kind: 'draft', templateId: t.id });
             }}
           >
             <SelectTrigger size="sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={BLANK_TEMPLATE}>Blank</SelectItem>
               {TABLE_TEMPLATES.map(t => (
                 <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
               ))}
@@ -355,13 +378,42 @@ export function App() {
       <main className="flex-1 overflow-auto p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
         <TableEditor
           key={`${storageKey}-${resetCount}`}
-          template={activeTemplate}
+          template={template}
           storageKey={storageKey}
-          accentColor={getGameTypeColor(activeTemplate?.id ?? BLANK_TEMPLATE)}
-          accentSoft={getGameTypeColor(activeTemplate?.id ?? BLANK_TEMPLATE, 3)}
-          accentBorder={getGameTypeColor(activeTemplate?.id ?? BLANK_TEMPLATE, 7)}
+          accentColor={getGameTypeColor(template.id)}
+          accentSoft={getGameTypeColor(template.id, 3)}
+          accentBorder={getGameTypeColor(template.id, 7)}
         />
       </main>
+    </div>
+  );
+}
+
+function StartupScreen({ onChoose }: { onChoose: (template: TableTemplate) => void }) {
+  return (
+    <div className="min-h-screen bg-muted/40 flex flex-col items-center justify-center gap-8 p-6">
+      <div className="flex items-center gap-2">
+        <Grid3x3 className="size-7 text-primary" />
+        <span className="text-2xl font-semibold text-foreground tracking-tight">
+          TableForge
+        </span>
+      </div>
+      <div className="flex flex-col items-center gap-3">
+        <p className="text-sm text-muted-foreground">Choose a game to get started</p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-md">
+          {TABLE_TEMPLATES.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => onChoose(t)}
+              className="flex items-center justify-center rounded-xl border border-border border-t-[3px] bg-card px-4 py-5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent"
+              style={{ borderTopColor: getGameTypeColor(t.id) }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
