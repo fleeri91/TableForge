@@ -389,7 +389,15 @@ export function App() {
   );
 }
 
-function StartupScreen({ onChoose }: { onChoose: (template: TableTemplate) => void }) {
+function StartupScreen({
+  savedTables, onChoose, onOpenSave,
+}: {
+  savedTables: SavedTable[];
+  onChoose: (template: TableTemplate) => void;
+  onOpenSave: (entry: SavedTable) => void;
+}) {
+  const recentSaves = [...savedTables].sort((a, b) => b.savedAt - a.savedAt);
+
   return (
     <div className="min-h-screen bg-muted/40 flex flex-col items-center justify-center gap-8 p-6">
       <div className="flex items-center gap-2">
@@ -414,6 +422,37 @@ function StartupScreen({ onChoose }: { onChoose: (template: TableTemplate) => vo
           ))}
         </div>
       </div>
+
+      {recentSaves.length > 0 && (
+        <div className="flex flex-col items-center gap-3 w-full max-w-md">
+          <div className="flex items-center gap-3 w-full">
+            <Separator className="flex-1" />
+            <span className="text-xs text-muted-foreground font-medium">or open a saved table</span>
+            <Separator className="flex-1" />
+          </div>
+          <div className="flex flex-col gap-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-sm">
+            {recentSaves.map(entry => (
+              <button
+                key={entry.id}
+                type="button"
+                onClick={() => onOpenSave(entry)}
+                className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
+              >
+                <span
+                  className="size-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: getGameTypeColor(entry.templateId ?? '') }}
+                />
+                <span className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">
+                  {entry.name}
+                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatRelative(entry.savedAt)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
