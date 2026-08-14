@@ -31,7 +31,7 @@ type ActiveSlot =
 
 const REGISTRY_KEY = 'tableforge:registry';
 
-function uid() { return Math.random().toString(36).slice(2, 9); }
+function uid() { return crypto.randomUUID(); }
 
 // A save's own data key holds the last-persisted snapshot; edits made after
 // loading it go to this separate working-copy key instead, so typing (or
@@ -56,8 +56,9 @@ function formatRelative(ts: number): string {
 }
 
 export function App() {
-  const mq = window.matchMedia('(prefers-color-scheme: dark)');
-  const [isDark, setIsDark] = useState(mq.matches);
+  const [isDark, setIsDark] = useState(
+    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
+  );
   const [activeTemplate, setActiveTemplate] = useState<TableTemplate | null>(null);
   const [resetCount, setResetCount] = useState(0);
   const [activeSlot, setActiveSlot] = useState<ActiveSlot>({ kind: 'draft', templateId: null });
