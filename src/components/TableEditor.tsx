@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { EllipsisVertical, Plus, X } from "lucide-react";
 import { CELL_COLORS } from "../config/cellColors";
 import { CELL_EMOJIS } from "../config/cellEmojis";
 import type { TableTemplate } from "../config/templates";
@@ -470,41 +470,53 @@ export function TableEditor({
   );
 
   // ── Drag resize ───────────────────────────────────────────────────────────
+  // Pointer Events (not mouse-only) so dragging works with touch as well as a
+  // mouse. setPointerCapture routes subsequent events to the handle itself
+  // regardless of where the finger/cursor moves, so listeners can live on the
+  // target instead of document.
 
   const startColResize = (
-    e: React.MouseEvent,
+    e: React.PointerEvent,
     colId: string,
     startWidth: number,
   ) => {
     e.preventDefault();
     e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
     const startX = e.clientX;
-    const onMove = (ev: MouseEvent) =>
+    const onMove = (ev: PointerEvent) =>
       resizeColumn(colId, startWidth + ev.clientX - startX);
     const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
+      target.removeEventListener("pointermove", onMove);
+      target.removeEventListener("pointerup", onUp);
+      target.removeEventListener("pointercancel", onUp);
     };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+    target.addEventListener("pointermove", onMove);
+    target.addEventListener("pointerup", onUp);
+    target.addEventListener("pointercancel", onUp);
   };
 
   const startRowResize = (
-    e: React.MouseEvent,
+    e: React.PointerEvent,
     rowId: string,
     startHeight: number,
   ) => {
     e.preventDefault();
     e.stopPropagation();
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
     const startY = e.clientY;
-    const onMove = (ev: MouseEvent) =>
+    const onMove = (ev: PointerEvent) =>
       resizeRow(rowId, startHeight + ev.clientY - startY);
     const onUp = () => {
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
+      target.removeEventListener("pointermove", onMove);
+      target.removeEventListener("pointerup", onUp);
+      target.removeEventListener("pointercancel", onUp);
     };
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
+    target.addEventListener("pointermove", onMove);
+    target.addEventListener("pointerup", onUp);
+    target.addEventListener("pointercancel", onUp);
   };
 
   // ── Context menu ──────────────────────────────────────────────────────────
@@ -535,7 +547,7 @@ export function TableEditor({
 
   return (
     <div
-      className="relative"
+      className="relative min-w-0 max-w-full"
       style={
         {
           "--tf-accent": accentColor,
@@ -544,12 +556,22 @@ export function TableEditor({
         } as React.CSSProperties
       }
     >
-      <div className="inline-flex flex-col overflow-hidden rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card">
+      {/* The table scrolls horizontally on itself (rather than relying on
+          the page-level scroll container) specifically so the sticky row-
+          number column below has a well-defined scroll ancestor to stick
+          against — an intervening `overflow-hidden` wrapper with no scroll
+          of its own would otherwise block position:sticky from tracking the
+          real scroll position. `max-w-full` is what lets `overflow-x-auto`
+          ever actually kick in: without it this shrink-to-fit box would
+          just keep growing to match its content instead of clipping/
+          scrolling it. */}
+      <div className="inline-flex flex-col max-w-full overflow-x-auto rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card print:overflow-visible">
         {/* ── Header Row ── */}
         <div className="flex border-b-2 border-(--tf-border) print:border-b-0">
-          {/* Corner cell */}
+          {/* Corner cell — sticky so it (and the row numbers below it) stay
+              visible while horizontally scrolling a wide table on mobile. */}
           <div
-            className="shrink-0 bg-(--tf-soft) border-r border-(--tf-border) print:border-r-0"
+            className="sticky left-0 z-20 shrink-0 bg-(--tf-soft) border-r border-(--tf-border) print:static print:border-r-0"
             style={{ width: ROW_NUM_W, height: 38 }}
           />
 
@@ -575,8 +597,8 @@ export function TableEditor({
               ) : (
                 <div
                   className="flex items-center justify-center gap-1 h-full px-2 text-sm font-semibold text-muted-foreground cursor-default select-none"
-                  onDoubleClick={() => setEditingHeader(col.id)}
-                  title="Double-click to rename"
+                  onClick={() => setEditingHeader(col.id)}
+                  title="Tap to rename"
                 >
                   <span className="truncate">{col.name || colLabel(ci)}</span>
                   <Badge
@@ -593,10 +615,9 @@ export function TableEditor({
                           e.stopPropagation();
                           cycleDistance(col.id, -1);
                         }}
-                        onDoubleClick={(e) => e.stopPropagation()}
                       />
                     }
-                    className="rounded-sm w-6 h-6 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
+                    className="rounded-sm w-7 h-7 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
                   >
                     {col.distance}
                   </Badge>
@@ -614,20 +635,22 @@ export function TableEditor({
                           e.stopPropagation();
                           cycleStartMethod(col.id, -1);
                         }}
-                        onDoubleClick={(e) => e.stopPropagation()}
                       />
                     }
-                    className="rounded-sm w-6 h-6 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
+                    className="rounded-sm w-7 h-7 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
                   >
                     {col.startMethod}
                   </Badge>
                 </div>
               )}
 
-              {/* Column resize handle */}
+              {/* Column resize handle — hit area is wider than its visible
+                  line (absolute, so it doesn't take layout space) and stays
+                  faintly visible at rest so touch users can find it without
+                  a hover cue. */}
               <div
-                className="absolute top-0 right-0 w-1.5 h-full cursor-col-resize hover:bg-(--tf-accent) transition-colors z-10 print:hidden"
-                onMouseDown={(e) => startColResize(e, col.id, col.width)}
+                className="absolute top-0 -right-1.5 w-3 h-full cursor-col-resize bg-border/40 hover:bg-(--tf-accent) transition-colors z-10 print:hidden touch-none"
+                onPointerDown={(e) => startColResize(e, col.id, col.width)}
               />
             </div>
           ))}
@@ -642,10 +665,11 @@ export function TableEditor({
             onMouseEnter={() => setHoveredRowId(row.id)}
             onMouseLeave={() => setHoveredRowId(null)}
           >
-            {/* Row number */}
+            {/* Row number — sticky so it stays visible while horizontally
+                scrolling a wide table on mobile. */}
             <div
               className={[
-                "relative shrink-0 flex items-center justify-center border-r border-(--tf-border) print:border-r-0 text-xs text-muted-foreground select-none cursor-default transition-colors",
+                "sticky left-0 z-20 shrink-0 flex items-center justify-center border-r border-(--tf-border) print:static print:border-r-0 text-xs text-muted-foreground select-none cursor-default transition-colors",
                 hoveredRowId === row.id ? "bg-(--tf-accent)/15" : "bg-(--tf-soft)",
               ].join(" ")}
               style={{ width: ROW_NUM_W }}
@@ -654,10 +678,11 @@ export function TableEditor({
               }
             >
               {ri + 1}
-              {/* Row resize handle */}
+              {/* Row resize handle — see column handle above for why it's
+                  wider than its visible line and faintly visible at rest. */}
               <div
-                className="absolute bottom-0 left-0 right-0 h-1.5 cursor-row-resize hover:bg-(--tf-accent) transition-colors z-10 print:hidden"
-                onMouseDown={(e) => startRowResize(e, row.id, row.height)}
+                className="absolute -bottom-1.5 left-0 right-0 h-3 cursor-row-resize bg-border/40 hover:bg-(--tf-accent) transition-colors z-10 print:hidden touch-none"
+                onPointerDown={(e) => startRowResize(e, row.id, row.height)}
               />
             </div>
 
@@ -693,7 +718,7 @@ export function TableEditor({
         {rows.length < MAX_ROWS && (
           <div className="flex print:hidden">
             <div
-              className="shrink-0 bg-(--tf-soft) border-r border-(--tf-border)"
+              className="sticky left-0 z-20 shrink-0 bg-(--tf-soft) border-r border-(--tf-border)"
               style={{ width: ROW_NUM_W }}
             />
             <Button
@@ -844,7 +869,28 @@ const TableCell = memo(function TableCell({
         backgroundColor: isDisabled ? undefined : (color ?? undefined),
       }}
       onContextMenu={(e) => onContextMenu(e, rowId, colId)}
+      onClick={() => onFocus(rowId, colId)}
     >
+      {/* Cell options trigger — the right-click menu has no touch
+          equivalent, so this makes the same menu reachable by tap. Shown
+          for the active cell; the wrapper's onClick above (not just the
+          input's onFocus) is what lets a *disabled* cell become active from
+          a tap too, since a disabled input can't take focus itself. */}
+      {isActive && (
+        <button
+          type="button"
+          className="absolute top-0.5 right-0.5 z-30 flex size-5 items-center justify-center rounded-md bg-(--tf-accent) text-white shadow-sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            onContextMenu(e, rowId, colId);
+          }}
+          title="Cell options"
+          aria-label="Cell options"
+        >
+          <EllipsisVertical className="size-3" />
+        </button>
+      )}
+
       {/* Emoji overlay */}
       {!isDisabled && hasEmojis && (
         <div className="absolute inset-0 flex items-center px-2 gap-1 pointer-events-none overflow-hidden">
@@ -877,6 +923,7 @@ const TableCell = memo(function TableCell({
         className="absolute inset-0 w-full h-full px-2 text-sm text-foreground outline-none bg-transparent disabled:cursor-not-allowed"
         disabled={isDisabled || hasEmojis}
         value={value}
+        enterKeyHint="next"
         onChange={(e) => onChange(rowId, colId, e.target.value)}
         onFocus={() => onFocus(rowId, colId)}
         onKeyDown={(e) => onKeyDown(rowId, colId, e)}
@@ -896,8 +943,37 @@ function ContextMenu({
   onClose: () => void;
   items: MenuItem[];
 }) {
+  // Anchored at (x, y) from the triggering element, but on a narrow phone
+  // viewport that point is often near the screen edge. A callback ref (runs
+  // synchronously right after the node mounts, before paint) measures the
+  // menu's actual size and nudges it back on-screen via direct style
+  // mutation — no extra render needed. Re-fires whenever (x, y) changes
+  // because it's memoized on them, so re-opening at a new spot re-clamps.
+  const clampToViewport = useCallback(
+    (el: HTMLDivElement | null) => {
+      if (!el) return;
+      // Reset to the unclamped anchor first so this is idempotent no matter
+      // how many times it runs — React (StrictMode, Fast Refresh) can and
+      // does replay ref callbacks against an already-mutated node, and
+      // measuring from that mutated position instead of the original anchor
+      // would compound the offset on every replay.
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      const margin = 8;
+      const rect = el.getBoundingClientRect();
+      if (rect.right > window.innerWidth - margin) {
+        el.style.left = `${Math.max(margin, x - (rect.right - window.innerWidth) - margin)}px`;
+      }
+      if (rect.bottom > window.innerHeight - margin) {
+        el.style.top = `${Math.max(margin, y - (rect.bottom - window.innerHeight) - margin)}px`;
+      }
+    },
+    [x, y],
+  );
+
   return (
     <div
+      ref={clampToViewport}
       className="fixed z-50 bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}

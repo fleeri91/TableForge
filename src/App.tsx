@@ -210,7 +210,7 @@ export function App() {
   return (
     <div className="min-h-screen bg-muted/40 flex flex-col transition-colors">
       {/* Toolbar */}
-      <header className="print:hidden bg-card border-b border-border px-5 py-2.5 flex items-center gap-3 shadow-sm">
+      <header className="print:hidden bg-card border-b border-border px-3 sm:px-5 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-3 shadow-sm">
         <Grid3x3 className="size-5 text-primary" />
         <span className="text-base font-semibold text-foreground tracking-tight">
           TableForge
@@ -220,7 +220,7 @@ export function App() {
 
         {/* Template picker */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground font-medium">
+          <span className="hidden sm:inline text-xs text-muted-foreground font-medium">
             Template
           </span>
           <Select
@@ -249,8 +249,8 @@ export function App() {
         {/* Save / Update */}
         <div className="relative">
           {activeSave ? (
-            <Button variant="outline" size="sm" onClick={updateCurrentSave} title={`Update "${activeSave.name}"`}>
-              <Save /> Update
+            <Button variant="outline" size="sm" onClick={updateCurrentSave} title={`Update "${activeSave.name}"`} aria-label={`Update "${activeSave.name}"`}>
+              <Save /> <span className="hidden sm:inline">Update</span>
             </Button>
           ) : (
             <Popover
@@ -260,10 +260,10 @@ export function App() {
                 if (o) { setSaveName(defaultName()); setLoadOpen(false); }
               }}
             >
-              <PopoverTrigger render={<Button variant="outline" size="sm" title="Save table" />}>
-                <Save /> Save
+              <PopoverTrigger render={<Button variant="outline" size="sm" title="Save table" aria-label="Save table" />}>
+                <Save /> <span className="hidden sm:inline">Save</span>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-64">
+              <PopoverContent align="start" className="w-64 max-w-[calc(100vw-1.5rem)]">
                 <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
                   Save table as
                 </p>
@@ -293,7 +293,7 @@ export function App() {
             <Badge
               variant="secondary"
               className={[
-                'pointer-events-none absolute left-0 top-full mt-1.5 whitespace-nowrap transition-opacity duration-300',
+                'pointer-events-none absolute left-0 top-full mt-1.5 max-w-[80vw] truncate transition-opacity duration-300',
                 feedback.visible ? 'opacity-100' : 'opacity-0',
               ].join(' ')}
             >
@@ -304,10 +304,10 @@ export function App() {
 
         {/* Load */}
         <Popover open={loadOpen} onOpenChange={o => { setLoadOpen(o); if (o) setSaveOpen(false); }}>
-          <PopoverTrigger render={<Button variant="outline" size="sm" title="Load a saved table" />}>
-            <FolderOpen /> Saved{savedTables.length > 0 ? ` (${savedTables.length})` : ''}
+          <PopoverTrigger render={<Button variant="outline" size="sm" title="Load a saved table" aria-label="Load a saved table" />}>
+            <FolderOpen /> <span className="hidden sm:inline">Saved{savedTables.length > 0 ? ` (${savedTables.length})` : ''}</span>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 max-h-80 overflow-y-auto p-1.5 gap-0">
+          <PopoverContent align="start" className="w-72 max-w-[calc(100vw-1.5rem)] max-h-80 overflow-y-auto p-1.5 gap-0">
             {savedTables.length === 0 ? (
               <p className="px-2 py-3 text-xs text-muted-foreground">
                 No saved tables yet. Use Save to create one.
@@ -348,12 +348,12 @@ export function App() {
         </Popover>
 
         {/* Export */}
-        <Button variant="outline" size="sm" onClick={exportPdf} title="Export the table as a PDF">
-          <FileText /> Export PDF
+        <Button variant="outline" size="sm" onClick={exportPdf} title="Export the table as a PDF" aria-label="Export the table as a PDF">
+          <FileText /> <span className="hidden sm:inline">Export PDF</span>
         </Button>
 
-        <Badge variant="outline" className="ml-1 text-muted-foreground font-normal">
-          Right-click cells for options · Double-click headers to rename
+        <Badge variant="outline" className="hidden lg:inline-flex ml-1 text-muted-foreground font-normal">
+          Tap ⋯ on a cell for options · Tap a header to rename
         </Badge>
 
         {/* Reset button */}
@@ -366,17 +366,18 @@ export function App() {
             setResetCount(c => c + 1);
           }}
           title="Clear all data and reset table"
+          aria-label="Clear all data and reset table"
         >
-          <RotateCcw /> Reset
+          <RotateCcw /> <span className="hidden sm:inline">Reset</span>
         </Button>
 
-        <Button variant="ghost" size="icon" onClick={() => setIsDark(d => !d)} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+        <Button variant="ghost" size="icon" onClick={() => setIsDark(d => !d)} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
           {isDark ? <Sun /> : <Moon />}
         </Button>
       </header>
 
       {/* Canvas */}
-      <main className="flex-1 overflow-auto p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
+      <main className="flex-1 overflow-auto p-3 sm:p-6 md:p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
         <TableEditor
           key={`${storageKey}-${resetCount}`}
           template={template}
