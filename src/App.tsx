@@ -307,7 +307,7 @@ export function App() {
           <PopoverTrigger render={<Button variant="outline" size="sm" title="Load a saved table" aria-label="Load a saved table" />}>
             <FolderOpen /> <span className="hidden sm:inline">Saved{savedTables.length > 0 ? ` (${savedTables.length})` : ''}</span>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 max-w-[calc(100vw-1.5rem)] max-h-80 overflow-y-auto p-1.5 gap-0">
+          <PopoverContent align="start" className="w-72 max-w-[calc(100vw-1.5rem)] max-h-80 overflow-y-auto no-scrollbar p-1.5 gap-0">
             {savedTables.length === 0 ? (
               <p className="px-2 py-3 text-xs text-muted-foreground">
                 No saved tables yet. Use Save to create one.
@@ -377,7 +377,7 @@ export function App() {
       </header>
 
       {/* Canvas */}
-      <main className="flex-1 overflow-auto p-3 sm:p-6 md:p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
+      <main className="flex-1 overflow-auto no-scrollbar p-3 sm:p-6 md:p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
         <TableEditor
           key={`${storageKey}-${resetCount}`}
           template={template}
@@ -432,7 +432,7 @@ function StartupScreen({
             <span className="text-xs text-muted-foreground font-medium">or open a saved table</span>
             <Separator className="flex-1" />
           </div>
-          <div className="flex flex-col gap-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-sm">
+          <div className="flex flex-col gap-1.5 w-full max-h-64 overflow-y-auto no-scrollbar rounded-xl border border-border bg-card p-1.5 shadow-sm">
             {recentSaves.map(entry => (
               <button
                 key={entry.id}

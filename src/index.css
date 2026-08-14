@@ -245,3 +245,14 @@
     @apply font-sans;
   }
 }
+
+/* Hides the scrollbar chrome on an overflowing container without disabling
+   scrolling itself — mouse wheel, trackpad, touch drag and keyboard scroll
+   all still work, only the visible bar is gone. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
