@@ -565,7 +565,10 @@ export function TableEditor({
           ever actually kick in: without it this shrink-to-fit box would
           just keep growing to match its content instead of clipping/
           scrolling it. */}
-      <div className="inline-flex flex-col max-w-full overflow-x-auto no-scrollbar rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card print:overflow-visible">
+      <div
+        data-scroll-hide
+        className="inline-flex flex-col max-w-full overflow-x-auto rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card print:overflow-visible"
+      >
         {/* ── Header Row ── */}
         <div className="flex border-b-2 border-(--tf-border) print:border-b-0">
           {/* Corner cell — sticky so it (and the row numbers below it) stay

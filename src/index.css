@@ -247,12 +247,24 @@
 }
 
 /* Hides the scrollbar chrome on an overflowing container without disabling
-   scrolling itself — mouse wheel, trackpad, touch drag and keyboard scroll
-   all still work, only the visible bar is gone. */
-.no-scrollbar {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+   scrolling itself — only on touch-primary devices (no hover, coarse
+   pointer), where swiping is the natural way to scroll and a bar is just
+   clutter. On a device with a mouse/trackpad (hover + fine pointer) the
+   native scrollbar stays: it's how a cursor-only user discovers a table
+   overflows and drags to scroll it sideways, since a plain mouse wheel only
+   scrolls vertically.
+
+   A data-attribute selector, not a class: Tailwind v4 scans markup for
+   class-like strings and re-homes anything matching into its own utilities
+   layer as a "candidate" regardless of how it was authored here, silently
+   dropping this rule's @media wrapper in the process. data-* attributes
+   aren't part of that scan, so this survives untouched. */
+@media (hover: none), (pointer: coarse) {
+  [data-scroll-hide] {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  [data-scroll-hide]::-webkit-scrollbar {
+    display: none;
+  }
 }
