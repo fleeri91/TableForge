@@ -650,9 +650,12 @@ export function TableEditor({
               {/* Column resize handle — hit area is wider than its visible
                   line (absolute, so it doesn't take layout space) and stays
                   faintly visible at rest so touch users can find it without
-                  a hover cue. */}
+                  a hover cue. Widens inward (right:0, not a negative offset)
+                  so it never overhangs past the table's own right edge —
+                  doing that on the last column used to register as ~6px of
+                  spurious horizontal scroll overflow on every template. */}
               <div
-                className="absolute top-0 -right-1.5 w-3 h-full cursor-col-resize bg-border/40 hover:bg-(--tf-accent) transition-colors z-10 print:hidden touch-none"
+                className="absolute top-0 right-0 w-3 h-full cursor-col-resize bg-border/40 hover:bg-(--tf-accent) transition-colors z-10 print:hidden touch-none"
                 onPointerDown={(e) => startColResize(e, col.id, col.width)}
               />
             </div>
@@ -682,9 +685,11 @@ export function TableEditor({
             >
               {ri + 1}
               {/* Row resize handle — see column handle above for why it's
-                  wider than its visible line and faintly visible at rest. */}
+                  wider than its visible line, faintly visible at rest, and
+                  widens inward (bottom:0) rather than overhanging past the
+                  table's own bottom edge. */}
               <div
-                className="absolute -bottom-1.5 left-0 right-0 h-3 cursor-row-resize bg-border/40 hover:bg-(--tf-accent) transition-colors z-10 print:hidden touch-none"
+                className="absolute bottom-0 left-0 right-0 h-3 cursor-row-resize bg-border/40 hover:bg-(--tf-accent) transition-colors z-10 print:hidden touch-none"
                 onPointerDown={(e) => startRowResize(e, row.id, row.height)}
               />
             </div>
