@@ -227,6 +227,7 @@ export function TableEditor({
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const rootRef = useRef<HTMLDivElement>(null);
 
   // ── Cell accessors ────────────────────────────────────────────────────────
 
@@ -543,10 +544,26 @@ export function TableEditor({
     };
   }, []);
 
+  // Clicking anywhere outside the table (but not inside it, since the
+  // context menu and cell-options button live in portalless overlays that
+  // are still descendants of the root) drops the active cell and blurs its
+  // input so the focus ring/caret actually goes away.
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setActiveCell(null);
+        (document.activeElement as HTMLElement | null)?.blur();
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div
+      ref={rootRef}
       className="relative min-w-0 max-w-full"
       style={
         {
