@@ -209,169 +209,189 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-muted/40 flex flex-col transition-colors">
-      {/* Toolbar */}
-      <header className="print:hidden bg-card border-b border-border px-3 sm:px-5 py-2.5 flex flex-wrap items-center gap-x-2 gap-y-2 sm:gap-3 shadow-sm">
-        <Grid3x3 className="size-5 text-primary" />
-        <span className="text-base font-semibold text-foreground tracking-tight">
-          TableForge
-        </span>
-
-        <Separator orientation="vertical" className="h-5" />
-
-        {/* Template picker */}
-        <div className="flex items-center gap-2">
-          <span className="hidden sm:inline text-xs text-muted-foreground font-medium">
-            Template
-          </span>
-          <Select
-            items={Object.fromEntries(TABLE_TEMPLATES.map(t => [t.id, t.label]))}
-            value={template.id}
-            onValueChange={v => {
-              const t = TABLE_TEMPLATES.find(t => t.id === v);
-              if (!t) return;
-              setActiveTemplate(t);
-              setActiveSlot({ kind: 'draft', templateId: t.id });
-            }}
-          >
-            <SelectTrigger size="sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TABLE_TEMPLATES.map(t => (
-                <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Toolbar. On mobile this is two fixed rows — brand (with the theme
+          toggle, so it's reachable without scrolling) and a horizontally-
+          scrollable actions row — instead of one `flex-wrap` row. Wrapping
+          on a narrow screen split the toolbar across an unpredictable
+          number of lines and stranded `ml-auto` mid-row, leaving orphaned
+          separators and a lone button dangling on its own line. `sm:contents`
+          on both rows dissolves them back into one flat, wrapping row at the
+          `sm` breakpoint, so desktop is pixel-identical to before. */}
+      <header className="print:hidden bg-card border-b border-border px-3 sm:px-5 py-2.5 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 shadow-sm">
+        <div className="flex items-center justify-between gap-2 sm:contents">
+          <div className="flex items-center gap-2">
+            <Grid3x3 className="size-5 text-primary" />
+            <span className="text-base font-semibold text-foreground tracking-tight">
+              TableForge
+            </span>
+          </div>
+          {/* Mobile-only theme toggle, kept beside the brand so it's always
+              visible; the desktop instance further down covers `sm:` and up. */}
+          <Button variant="ghost" size="icon" className="size-9 sm:hidden" onClick={() => setIsDark(d => !d)} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+            {isDark ? <Sun /> : <Moon />}
+          </Button>
         </div>
 
-        <Separator orientation="vertical" className="h-5" />
+        <Separator orientation="vertical" className="hidden sm:block h-5" />
 
-        {/* Save / Update */}
-        <div className="relative">
-          {activeSave ? (
-            <Button variant="outline" size="sm" onClick={updateCurrentSave} title={`Update "${activeSave.name}"`} aria-label={`Update "${activeSave.name}"`}>
-              <Save /> <span className="hidden sm:inline">Update</span>
-            </Button>
-          ) : (
-            <Popover
-              open={saveOpen}
-              onOpenChange={o => {
-                setSaveOpen(o);
-                if (o) { setSaveName(defaultName()); setLoadOpen(false); }
+        {/* Actions row */}
+        <div data-scroll-hide className="flex items-center gap-2 overflow-x-auto sm:contents">
+          {/* Template picker */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="hidden sm:inline text-xs text-muted-foreground font-medium">
+              Template
+            </span>
+            <Select
+              items={Object.fromEntries(TABLE_TEMPLATES.map(t => [t.id, t.label]))}
+              value={template.id}
+              onValueChange={v => {
+                const t = TABLE_TEMPLATES.find(t => t.id === v);
+                if (!t) return;
+                setActiveTemplate(t);
+                setActiveSlot({ kind: 'draft', templateId: t.id });
               }}
             >
-              <PopoverTrigger render={<Button variant="outline" size="sm" title="Save table" aria-label="Save table" />}>
-                <Save /> <span className="hidden sm:inline">Save</span>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-64 max-w-[calc(100vw-1.5rem)]">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
-                  Save table as
-                </p>
-                <Input
-                  autoFocus
-                  value={saveName}
-                  onChange={e => setSaveName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') confirmSave();
-                    if (e.key === 'Escape') setSaveOpen(false);
-                  }}
-                  placeholder="Table name"
-                />
-                <div className="flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" onClick={() => setSaveOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={confirmSave}>
-                    Save
-                  </Button>
-                </div>
-              </PopoverContent>
-            </Popover>
-          )}
+              <SelectTrigger size="sm" className="data-[size=sm]:h-9 sm:data-[size=sm]:h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TABLE_TEMPLATES.map(t => (
+                  <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {feedback && (
-            <Badge
-              variant="secondary"
-              className={[
-                'pointer-events-none absolute left-0 top-full mt-1.5 max-w-[80vw] truncate transition-opacity duration-300',
-                feedback.visible ? 'opacity-100' : 'opacity-0',
-              ].join(' ')}
-            >
-              <Check /> {feedback.text}
-            </Badge>
-          )}
+          <Separator orientation="vertical" className="hidden sm:block h-5" />
+
+          {/* Save / Update */}
+          <div className="relative shrink-0">
+            {activeSave ? (
+              <Button variant="outline" size="icon" className="size-9 sm:size-8" onClick={updateCurrentSave} title={`Update "${activeSave.name}"`} aria-label={`Update "${activeSave.name}"`}>
+                <Save />
+              </Button>
+            ) : (
+              <Popover
+                open={saveOpen}
+                onOpenChange={o => {
+                  setSaveOpen(o);
+                  if (o) { setSaveName(defaultName()); setLoadOpen(false); }
+                }}
+              >
+                <PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8" title="Save table" aria-label="Save table" />}>
+                  <Save />
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-64 max-w-[calc(100vw-1.5rem)]">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                    Save table as
+                  </p>
+                  <Input
+                    autoFocus
+                    value={saveName}
+                    onChange={e => setSaveName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') confirmSave();
+                      if (e.key === 'Escape') setSaveOpen(false);
+                    }}
+                    placeholder="Table name"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setSaveOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={confirmSave}>
+                      Save
+                    </Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+
+            {feedback && (
+              <Badge
+                variant="secondary"
+                className={[
+                  'pointer-events-none absolute left-0 top-full mt-1.5 max-w-[80vw] truncate transition-opacity duration-300',
+                  feedback.visible ? 'opacity-100' : 'opacity-0',
+                ].join(' ')}
+              >
+                <Check /> {feedback.text}
+              </Badge>
+            )}
+          </div>
+
+          {/* Load */}
+          <Popover open={loadOpen} onOpenChange={o => { setLoadOpen(o); if (o) setSaveOpen(false); }}>
+            <PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" title="Load a saved table" aria-label={`Load a saved table${savedTables.length > 0 ? ` (${savedTables.length} saved)` : ''}`} />}>
+              <FolderOpen />
+            </PopoverTrigger>
+            <PopoverContent data-scroll-hide align="start" className="w-72 max-w-[calc(100vw-1.5rem)] max-h-80 overflow-y-auto p-1.5 gap-0">
+              {savedTables.length === 0 ? (
+                <p className="px-2 py-3 text-xs text-muted-foreground">
+                  No saved tables yet. Use Save to create one.
+                </p>
+              ) : (
+                [...savedTables].sort((a, b) => b.savedAt - a.savedAt).map(entry => (
+                  <div
+                    key={entry.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => loadSave(entry)}
+                    onKeyDown={e => { if (e.key === 'Enter') loadSave(entry); }}
+                    className={[
+                      'w-full flex items-center justify-between gap-2 rounded-md px-2 py-2 text-left cursor-pointer transition-colors',
+                      activeSave?.id === entry.id ? 'bg-accent' : 'hover:bg-accent/60',
+                    ].join(' ')}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {entry.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatRelative(entry.savedAt)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={e => deleteSave(entry, e)}
+                      title="Delete"
+                    >
+                      <Trash2 />
+                    </Button>
+                  </div>
+                ))
+              )}
+            </PopoverContent>
+          </Popover>
+
+          {/* Export */}
+          <Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" onClick={exportPdf} title="Export the table as a PDF" aria-label="Export the table as a PDF">
+            <FileText />
+          </Button>
+
+          <Badge variant="outline" className="hidden lg:inline-flex ml-1 text-muted-foreground font-normal shrink-0">
+            Tap ⋯ on a cell for options · Tap a header to rename
+          </Badge>
+
+          {/* Reset button */}
+          <Button
+            variant="destructive"
+            size="icon"
+            className="size-9 sm:size-8 shrink-0 sm:ml-auto"
+            onClick={() => {
+              localStorage.removeItem(storageKey);
+              setResetCount(c => c + 1);
+            }}
+            title="Clear all data and reset table"
+            aria-label="Clear all data and reset table"
+          >
+            <RotateCcw />
+          </Button>
         </div>
 
-        {/* Load */}
-        <Popover open={loadOpen} onOpenChange={o => { setLoadOpen(o); if (o) setSaveOpen(false); }}>
-          <PopoverTrigger render={<Button variant="outline" size="sm" title="Load a saved table" aria-label="Load a saved table" />}>
-            <FolderOpen /> <span className="hidden sm:inline">Saved{savedTables.length > 0 ? ` (${savedTables.length})` : ''}</span>
-          </PopoverTrigger>
-          <PopoverContent data-scroll-hide align="start" className="w-72 max-w-[calc(100vw-1.5rem)] max-h-80 overflow-y-auto p-1.5 gap-0">
-            {savedTables.length === 0 ? (
-              <p className="px-2 py-3 text-xs text-muted-foreground">
-                No saved tables yet. Use Save to create one.
-              </p>
-            ) : (
-              [...savedTables].sort((a, b) => b.savedAt - a.savedAt).map(entry => (
-                <div
-                  key={entry.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => loadSave(entry)}
-                  onKeyDown={e => { if (e.key === 'Enter') loadSave(entry); }}
-                  className={[
-                    'w-full flex items-center justify-between gap-2 rounded-md px-2 py-2 text-left cursor-pointer transition-colors',
-                    activeSave?.id === entry.id ? 'bg-accent' : 'hover:bg-accent/60',
-                  ].join(' ')}
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {entry.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatRelative(entry.savedAt)}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={e => deleteSave(entry, e)}
-                    title="Delete"
-                  >
-                    <Trash2 />
-                  </Button>
-                </div>
-              ))
-            )}
-          </PopoverContent>
-        </Popover>
-
-        {/* Export */}
-        <Button variant="outline" size="sm" onClick={exportPdf} title="Export the table as a PDF" aria-label="Export the table as a PDF">
-          <FileText /> <span className="hidden sm:inline">Export PDF</span>
-        </Button>
-
-        <Badge variant="outline" className="hidden lg:inline-flex ml-1 text-muted-foreground font-normal">
-          Tap ⋯ on a cell for options · Tap a header to rename
-        </Badge>
-
-        {/* Reset button */}
-        <Button
-          variant="destructive"
-          size="sm"
-          className="ml-auto"
-          onClick={() => {
-            localStorage.removeItem(storageKey);
-            setResetCount(c => c + 1);
-          }}
-          title="Clear all data and reset table"
-          aria-label="Clear all data and reset table"
-        >
-          <RotateCcw /> <span className="hidden sm:inline">Reset</span>
-        </Button>
-
-        <Button variant="ghost" size="icon" onClick={() => setIsDark(d => !d)} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+        {/* Desktop-only theme toggle — mirrors its original end-of-toolbar position; the mobile instance lives in the brand row above. */}
+        <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => setIsDark(d => !d)} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
           {isDark ? <Sun /> : <Moon />}
         </Button>
       </header>
