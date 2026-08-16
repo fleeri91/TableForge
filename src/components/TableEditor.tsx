@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { EllipsisVertical, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { CELL_COLORS } from "../config/cellColors";
 import { CELL_EMOJIS } from "../config/cellEmojis";
 import type { TableTemplate } from "../config/templates";
@@ -31,8 +31,6 @@ interface Row {
   id: string;
   height: number;
 }
-
-type Cells = Record<string, string>; // `${rowId}:${colId}` → value
 
 interface ContextMenuState {
   x: number;
@@ -157,9 +155,6 @@ export function TableEditor({
       return saved!.rows as Row[];
     return Array.from({ length: template.rows }, () => makeRow());
   });
-  const [cells, setCells] = useState<Cells>(
-    () => (saved?.cells as Cells) ?? {},
-  );
   const [cellColors, setCellColors] = useState<Record<string, string>>(
     () => (saved?.cellColors as Record<string, string>) ?? {},
   );
@@ -172,10 +167,6 @@ export function TableEditor({
   const [cellHandicaps, setCellHandicaps] = useState<Record<string, Handicap>>(
     () => (saved?.cellHandicaps as Record<string, Handicap>) ?? {},
   );
-  const [activeCell, setActiveCell] = useState<{
-    rowId: string;
-    colId: string;
-  } | null>(null);
   const [editingHeader, setEditingHeader] = useState<string | null>(null);
 
   // ── Persist to localStorage ────────────────────────────────────────────────
@@ -189,7 +180,6 @@ export function TableEditor({
   latestSnapshotRef.current = {
     columns,
     rows,
-    cells,
     cellColors,
     cellEmojis,
     cellDisabled,
@@ -214,7 +204,6 @@ export function TableEditor({
     persist,
     columns,
     rows,
-    cells,
     cellColors,
     cellEmojis,
     cellDisabled,
@@ -226,12 +215,7 @@ export function TableEditor({
   const [ctxMenu, setCtxMenu] = useState<ContextMenuState | null>(null);
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
-  const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
-  const rootRef = useRef<HTMLDivElement>(null);
-
   // ── Cell accessors ────────────────────────────────────────────────────────
-
-  const getCell = (rId: string, cId: string) => cells[cellKey(rId, cId)] ?? "";
 
   const getCellColor = (rId: string, cId: string) =>
     cellColors[cellKey(rId, cId)] ?? null;
@@ -291,41 +275,13 @@ export function TableEditor({
       return rest;
     });
 
-  // Stable handlers passed down to the memoized TableCell — their identity
-  // never changes across renders (including during a resize drag), so cells
-  // whose own props didn't change can actually skip re-rendering.
-  const handleCellChange = useCallback(
-    (rId: string, cId: string, val: string) =>
-      setCells((prev) => ({ ...prev, [cellKey(rId, cId)]: val })),
-    [],
-  );
-
-  const handleCellFocus = useCallback(
-    (rId: string, cId: string) => setActiveCell({ rowId: rId, colId: cId }),
-    [],
-  );
-
-  const registerCellRef = useCallback(
-    (rId: string, cId: string, el: HTMLInputElement | null) => {
-      cellRefs.current[cellKey(rId, cId)] = el;
-    },
-    [],
-  );
-
   // ── Column operations ─────────────────────────────────────────────────────
   // Columns are fixed by the template (one per race) — no add, only delete.
 
   const deleteColumn = (colId: string) => {
     if (columns.length <= 1) return;
     setColumns((prev) => prev.filter((c) => c.id !== colId));
-    setCells((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((k) => {
-        if (k.endsWith(`:${colId}`)) delete next[k];
-      });
-      return next;
-    });
-    if (activeCell?.colId === colId) setActiveCell(null);
+    if (ctxMenu?.colId === colId) setCtxMenu(null);
   };
 
   const renameColumn = (colId: string, name: string) =>
@@ -379,14 +335,7 @@ export function TableEditor({
   const deleteRow = (rowId: string) => {
     if (rows.length <= 1) return;
     setRows((prev) => prev.filter((r) => r.id !== rowId));
-    setCells((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((k) => {
-        if (k.startsWith(`${rowId}:`)) delete next[k];
-      });
-      return next;
-    });
-    if (activeCell?.rowId === rowId) setActiveCell(null);
+    if (ctxMenu?.rowId === rowId) setCtxMenu(null);
   };
 
   const resizeRow = (rowId: string, height: number) =>
@@ -395,80 +344,6 @@ export function TableEditor({
         r.id === rowId ? { ...r, height: Math.max(MIN_ROW_H, height) } : r,
       ),
     );
-
-  // ── Navigation ────────────────────────────────────────────────────────────
-  // Reads rows/columns from refs (kept in sync every render) instead of
-  // closing over the state directly, so this callback's identity never
-  // changes — a column/row resize (which replaces the columns/rows array)
-  // would otherwise invalidate every cell's memoized onKeyDown prop.
-
-  const rowsRef = useRef(rows);
-  rowsRef.current = rows;
-  const columnsRef = useRef(columns);
-  columnsRef.current = columns;
-
-  const navigate = useCallback(
-    (rowId: string, colId: string, dir: "up" | "down" | "tab" | "tab-back") => {
-      const rows = rowsRef.current;
-      const columns = columnsRef.current;
-      const ri = rows.findIndex((r) => r.id === rowId);
-      const ci = columns.findIndex((c) => c.id === colId);
-      let nr = ri,
-        nc = ci;
-
-      if (dir === "up") nr = Math.max(0, ri - 1);
-      else if (dir === "down") nr = Math.min(rows.length - 1, ri + 1);
-      else if (dir === "tab") {
-        nc = ci + 1;
-        if (nc >= columns.length) {
-          nc = 0;
-          nr = Math.min(rows.length - 1, ri + 1);
-        }
-      } else {
-        nc = ci - 1;
-        if (nc < 0) {
-          nc = columns.length - 1;
-          nr = Math.max(0, ri - 1);
-        }
-      }
-
-      const newRowId = rows[nr].id;
-      const newColId = columns[nc].id;
-      setActiveCell({ rowId: newRowId, colId: newColId });
-      setTimeout(() => {
-        cellRefs.current[cellKey(newRowId, newColId)]?.focus();
-      }, 0);
-    },
-    [],
-  );
-
-  const handleCellKeyDown = useCallback(
-    (rId: string, cId: string, e: React.KeyboardEvent<HTMLInputElement>) => {
-      switch (e.key) {
-        case "Tab":
-          e.preventDefault();
-          navigate(rId, cId, e.shiftKey ? "tab-back" : "tab");
-          break;
-        case "Enter":
-          e.preventDefault();
-          navigate(rId, cId, "down");
-          break;
-        case "ArrowUp":
-          e.preventDefault();
-          navigate(rId, cId, "up");
-          break;
-        case "ArrowDown":
-          e.preventDefault();
-          navigate(rId, cId, "down");
-          break;
-        case "Escape":
-          setActiveCell(null);
-          (e.target as HTMLInputElement).blur();
-          break;
-      }
-    },
-    [navigate],
-  );
 
   // ── Drag resize ───────────────────────────────────────────────────────────
   // Pointer Events (not mouse-only) so dragging works with touch as well as a
@@ -544,26 +419,10 @@ export function TableEditor({
     };
   }, []);
 
-  // Clicking anywhere outside the table (but not inside it, since the
-  // context menu and cell-options button live in portalless overlays that
-  // are still descendants of the root) drops the active cell and blurs its
-  // input so the focus ring/caret actually goes away.
-  useEffect(() => {
-    const onPointerDown = (e: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
-        setActiveCell(null);
-        (document.activeElement as HTMLElement | null)?.blur();
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, []);
-
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div
-      ref={rootRef}
       className="relative min-w-0 max-w-full"
       style={
         {
@@ -719,20 +578,15 @@ export function TableEditor({
                 colId={col.id}
                 width={col.width}
                 height={row.height}
-                value={getCell(row.id, col.id)}
                 isActive={
-                  activeCell?.rowId === row.id && activeCell?.colId === col.id
+                  ctxMenu?.rowId === row.id && ctxMenu?.colId === col.id
                 }
                 isDisabled={isCellDisabled(row.id, col.id)}
                 isHovered={hoveredRowId === row.id}
                 color={getCellColor(row.id, col.id)}
                 emojis={getCellEmojis(row.id, col.id)}
                 handicap={getCellHandicap(row.id, col.id)}
-                onChange={handleCellChange}
-                onFocus={handleCellFocus}
-                onKeyDown={handleCellKeyDown}
-                onContextMenu={openCtxMenu}
-                registerRef={registerCellRef}
+                onOpenMenu={openCtxMenu}
               />
             ))}
           </div>
@@ -833,53 +687,38 @@ interface TableCellProps {
   colId: string;
   width: number;
   height: number;
-  value: string;
   isActive: boolean;
   isDisabled: boolean;
   isHovered: boolean;
   color: string | null;
   emojis: string[];
   handicap: Handicap | null;
-  onChange: (rowId: string, colId: string, value: string) => void;
-  onFocus: (rowId: string, colId: string) => void;
-  onKeyDown: (
-    rowId: string,
-    colId: string,
-    e: React.KeyboardEvent<HTMLInputElement>,
-  ) => void;
-  onContextMenu: (e: React.MouseEvent, rowId: string, colId: string) => void;
-  registerRef: (rowId: string, colId: string, el: HTMLInputElement | null) => void;
+  onOpenMenu: (e: React.MouseEvent, rowId: string, colId: string) => void;
 }
 
-// Memoized so that a change unrelated to this specific cell (e.g. typing in
-// another cell, or a drag-resize elsewhere) doesn't force it to re-render —
-// only cells whose own props actually changed do. Relies on all callback
-// props and the `emojis` array staying referentially stable when this cell's
-// own data hasn't changed (see EMPTY_EMOJIS and the functional setState
-// updates above).
+// Memoized so that a change unrelated to this specific cell (e.g. a
+// drag-resize elsewhere) doesn't force it to re-render — only cells whose
+// own props actually changed do. Relies on all callback props and the
+// `emojis` array staying referentially stable when this cell's own data
+// hasn't changed (see EMPTY_EMOJIS and the functional setState updates
+// above).
 const TableCell = memo(function TableCell({
   rowId,
   colId,
   width,
   height,
-  value,
   isActive,
   isDisabled,
   isHovered,
   color,
   emojis,
   handicap,
-  onChange,
-  onFocus,
-  onKeyDown,
-  onContextMenu,
-  registerRef,
+  onOpenMenu,
 }: TableCellProps) {
-  const hasEmojis = emojis.length > 0;
   return (
     <div
       className={[
-        "relative shrink-0 border-r border-border/60 print:border-r-0 transition-colors",
+        "relative shrink-0 border-r border-border/60 print:border-r-0 transition-colors cursor-pointer",
         isDisabled
           ? "bg-muted-foreground/40"
           : isActive
@@ -893,31 +732,17 @@ const TableCell = memo(function TableCell({
         height,
         backgroundColor: isDisabled ? undefined : (color ?? undefined),
       }}
-      onContextMenu={(e) => onContextMenu(e, rowId, colId)}
-      onClick={() => onFocus(rowId, colId)}
+      onContextMenu={(e) => onOpenMenu(e, rowId, colId)}
+      onClick={(e) => {
+        // Stops the click from bubbling to the window-level listener that
+        // closes the context menu on any outside click — otherwise the menu
+        // this very click just opened would immediately close again.
+        e.stopPropagation();
+        onOpenMenu(e, rowId, colId);
+      }}
     >
-      {/* Cell options trigger — the right-click menu has no touch
-          equivalent, so this makes the same menu reachable by tap. Shown
-          for the active cell; the wrapper's onClick above (not just the
-          input's onFocus) is what lets a *disabled* cell become active from
-          a tap too, since a disabled input can't take focus itself. */}
-      {isActive && (
-        <button
-          type="button"
-          className="absolute top-0.5 right-0.5 z-30 flex size-5 items-center justify-center rounded-md bg-(--tf-accent) text-white shadow-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            onContextMenu(e, rowId, colId);
-          }}
-          title="Cell options"
-          aria-label="Cell options"
-        >
-          <EllipsisVertical className="size-3" />
-        </button>
-      )}
-
       {/* Emoji overlay */}
-      {!isDisabled && hasEmojis && (
+      {!isDisabled && emojis.length > 0 && (
         <div className="absolute inset-0 flex items-center px-2 gap-1 pointer-events-none overflow-hidden">
           {emojis.map((e) => (
             <span key={e} style={{ fontSize: 18 }}>
@@ -942,17 +767,6 @@ const TableCell = memo(function TableCell({
           </span>
         </div>
       )}
-
-      <input
-        ref={(el) => registerRef(rowId, colId, el)}
-        className="absolute inset-0 w-full h-full px-2 text-sm text-foreground outline-none bg-transparent disabled:cursor-not-allowed"
-        disabled={isDisabled || hasEmojis}
-        value={value}
-        enterKeyHint="next"
-        onChange={(e) => onChange(rowId, colId, e.target.value)}
-        onFocus={() => onFocus(rowId, colId)}
-        onKeyDown={(e) => onKeyDown(rowId, colId, e)}
-      />
     </div>
   );
 });
