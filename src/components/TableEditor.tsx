@@ -93,6 +93,21 @@ function cellKey(rowId: string, colId: string) {
   return `${rowId}:${colId}`;
 }
 
+// A floating popup anchored to a specific cell doesn't translate well to
+// touch — the cell context menu instead becomes a bottom sheet below this
+// breakpoint. Mirrors the dark-mode media-query pattern in App.tsx.
+function useIsMobile() {
+  const query = "(max-width: 639px)";
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
 // Shared reference for "no emojis" so cells without any keep a referentially
 // stable prop across renders — letting TableCell's memo actually skip them.
 const EMPTY_EMOJIS: string[] = [];
@@ -702,15 +717,23 @@ function ContextMenu({
   onClose: () => void;
   items: MenuItem[];
 }) {
+  const isMobile = useIsMobile();
+
   // Anchored at (x, y) from the triggering element, but on a narrow phone
-  // viewport that point is often near the screen edge. A callback ref (runs
-  // synchronously right after the node mounts, before paint) measures the
-  // menu's actual size and nudges it back on-screen via direct style
-  // mutation — no extra render needed. Re-fires whenever (x, y) changes
-  // because it's memoized on them, so re-opening at a new spot re-clamps.
+  // viewport that point is often near the screen edge — and a small popup
+  // tacked onto the edge of a cell is awkward to hit with a thumb regardless.
+  // Below the `sm` breakpoint the menu renders as a full-width bottom sheet
+  // instead (see the `isMobile` branch below), so this clamping — and (x, y)
+  // entirely — only matters for the desktop popup.
+  //
+  // A callback ref (runs synchronously right after the node mounts, before
+  // paint) measures the menu's actual size and nudges it back on-screen via
+  // direct style mutation — no extra render needed. Re-fires whenever (x, y)
+  // changes because it's memoized on them, so re-opening at a new spot
+  // re-clamps.
   const clampToViewport = useCallback(
     (el: HTMLDivElement | null) => {
-      if (!el) return;
+      if (!el || isMobile) return;
       // Reset to the unclamped anchor first so this is idempotent no matter
       // how many times it runs — React (StrictMode, Fast Refresh) can and
       // does replay ref callbacks against an already-mutated node, and
@@ -727,17 +750,22 @@ function ContextMenu({
         el.style.top = `${Math.max(margin, y - (rect.bottom - window.innerHeight) - margin)}px`;
       }
     },
-    [x, y],
+    [x, y, isMobile],
   );
 
-  return (
-    <div
-      ref={clampToViewport}
-      className="fixed z-50 bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
-      style={{ left: x, top: y }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {items.map((item, i) => {
+  // Locks background scroll while the mobile sheet is open, like a modal —
+  // otherwise a drag on the sheet's own scroll area can also pan the table
+  // underneath it.
+  useEffect(() => {
+    if (!isMobile) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isMobile]);
+
+  const content = items.map((item, i) => {
         if (item.colorPicker) {
           const { active, onSelect } = item.colorPicker;
           return (
@@ -873,7 +901,7 @@ function ContextMenu({
             variant="ghost"
             disabled={item.disabled}
             className={[
-              "w-full justify-start rounded-none px-4 font-normal",
+              "w-full h-10 sm:h-8 justify-start rounded-none px-4 font-normal",
               item.danger
                 ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
                 : "",
@@ -888,7 +916,49 @@ function ContextMenu({
             {item.label}
           </Button>
         );
-      })}
+      });
+
+  if (isMobile) {
+    return (
+      <>
+        {/* Backdrop — dims the table and doubles as a large tap-to-close
+            target, standard for a bottom-sheet-style modal. */}
+        <div
+          className="fixed inset-0 z-50 bg-black/50 animate-in fade-in duration-150"
+          onClick={onClose}
+        />
+        <div
+          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[80vh] flex-col rounded-t-2xl border-t border-border bg-popover text-popover-foreground shadow-2xl animate-in slide-in-from-bottom duration-200"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">
+              Cell options
+            </span>
+            <button
+              onClick={onClose}
+              className="-mr-1.5 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Close"
+            >
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="overflow-y-auto pb-[max(env(safe-area-inset-bottom),0.375rem)]">
+            {content}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <div
+      ref={clampToViewport}
+      className="fixed z-50 bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
+      style={{ left: x, top: y }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {content}
     </div>
   );
 }
