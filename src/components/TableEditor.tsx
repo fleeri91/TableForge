@@ -98,8 +98,6 @@ function cellKey(rowId: string, colId: string) {
 const EMPTY_EMOJIS: string[] = [];
 
 const ROW_NUM_W = 44;
-const MIN_COL_W = 48;
-const MIN_ROW_H = 28;
 const MAX_ROWS = 15;
 const PERSIST_DEBOUNCE_MS = 400;
 
@@ -170,7 +168,7 @@ export function TableEditor({
   const [editingHeader, setEditingHeader] = useState<string | null>(null);
 
   // ── Persist to localStorage ────────────────────────────────────────────────
-  // Debounced: dragging a resize handle or typing fires many state updates in
+  // Debounced: typing fires many state updates in
   // quick succession, and writing the whole table to localStorage on every one
   // of them (synchronously) is what actually causes visible jank. Only the
   // settled value after a short quiet period gets written, and any pending
@@ -310,13 +308,6 @@ export function TableEditor({
       ),
     );
 
-  const resizeColumn = (colId: string, width: number) =>
-    setColumns((prev) =>
-      prev.map((c) =>
-        c.id === colId ? { ...c, width: Math.max(MIN_COL_W, width) } : c,
-      ),
-    );
-
   // ── Row operations ────────────────────────────────────────────────────────
   // Rows cap at MAX_ROWS (the largest a template ever starts with) — adding
   // is only ever "restoring" capacity freed up by a previous delete.
@@ -336,63 +327,6 @@ export function TableEditor({
     if (rows.length <= 1) return;
     setRows((prev) => prev.filter((r) => r.id !== rowId));
     if (ctxMenu?.rowId === rowId) setCtxMenu(null);
-  };
-
-  const resizeRow = (rowId: string, height: number) =>
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id === rowId ? { ...r, height: Math.max(MIN_ROW_H, height) } : r,
-      ),
-    );
-
-  // ── Drag resize ───────────────────────────────────────────────────────────
-  // Pointer Events (not mouse-only) so dragging works with touch as well as a
-  // mouse. setPointerCapture routes subsequent events to the handle itself
-  // regardless of where the finger/cursor moves, so listeners can live on the
-  // target instead of document.
-
-  const startColResize = (
-    e: React.PointerEvent,
-    colId: string,
-    startWidth: number,
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-    const startX = e.clientX;
-    const onMove = (ev: PointerEvent) =>
-      resizeColumn(colId, startWidth + ev.clientX - startX);
-    const onUp = () => {
-      target.removeEventListener("pointermove", onMove);
-      target.removeEventListener("pointerup", onUp);
-      target.removeEventListener("pointercancel", onUp);
-    };
-    target.addEventListener("pointermove", onMove);
-    target.addEventListener("pointerup", onUp);
-    target.addEventListener("pointercancel", onUp);
-  };
-
-  const startRowResize = (
-    e: React.PointerEvent,
-    rowId: string,
-    startHeight: number,
-  ) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-    const startY = e.clientY;
-    const onMove = (ev: PointerEvent) =>
-      resizeRow(rowId, startHeight + ev.clientY - startY);
-    const onUp = () => {
-      target.removeEventListener("pointermove", onMove);
-      target.removeEventListener("pointerup", onUp);
-      target.removeEventListener("pointercancel", onUp);
-    };
-    target.addEventListener("pointermove", onMove);
-    target.addEventListener("pointerup", onUp);
-    target.addEventListener("pointercancel", onUp);
   };
 
   // ── Context menu ──────────────────────────────────────────────────────────
@@ -522,18 +456,6 @@ export function TableEditor({
                   </Badge>
                 </div>
               )}
-
-              {/* Column resize handle — hit area is wider than its visible
-                  line (absolute, so it doesn't take layout space) and stays
-                  faintly visible at rest so touch users can find it without
-                  a hover cue. Widens inward (right:0, not a negative offset)
-                  so it never overhangs past the table's own right edge —
-                  doing that on the last column used to register as ~6px of
-                  spurious horizontal scroll overflow on every template. */}
-              <div
-                className="absolute top-0 right-0 w-3 h-full cursor-col-resize bg-border/40 hover:bg-(--tf-accent) transition-colors z-10 print:hidden touch-none"
-                onPointerDown={(e) => startColResize(e, col.id, col.width)}
-              />
             </div>
           ))}
         </div>
@@ -560,14 +482,6 @@ export function TableEditor({
               }
             >
               {ri + 1}
-              {/* Row resize handle — see column handle above for why it's
-                  wider than its visible line, faintly visible at rest, and
-                  widens inward (bottom:0) rather than overhanging past the
-                  table's own bottom edge. */}
-              <div
-                className="absolute bottom-0 left-0 right-0 h-3 cursor-row-resize bg-border/40 hover:bg-(--tf-accent) transition-colors z-10 print:hidden touch-none"
-                onPointerDown={(e) => startRowResize(e, row.id, row.height)}
-              />
             </div>
 
             {/* Cells */}
@@ -696,8 +610,8 @@ interface TableCellProps {
   onOpenMenu: (e: React.MouseEvent, rowId: string, colId: string) => void;
 }
 
-// Memoized so that a change unrelated to this specific cell (e.g. a
-// drag-resize elsewhere) doesn't force it to re-render — only cells whose
+// Memoized so that a change unrelated to this specific cell doesn't force
+// it to re-render — only cells whose
 // own props actually changed do. Relies on all callback props and the
 // `emojis` array staying referentially stable when this cell's own data
 // hasn't changed (see EMPTY_EMOJIS and the functional setState updates
