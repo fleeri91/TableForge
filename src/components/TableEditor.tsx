@@ -374,13 +374,19 @@ export function TableEditor({
           real scroll position. `max-w-full` is what lets `overflow-x-auto`
           ever actually kick in: without it this shrink-to-fit box would
           just keep growing to match its content instead of clipping/
-          scrolling it. */}
+          scrolling it. Each row below also needs `w-max`: as a column-flex
+          child with no explicit width it would otherwise stretch to this
+          container's post-clamp (scrollport) width rather than its own
+          shrink-0 cells' full width, and a sticky child can only stay
+          stuck up to (its row's width − its own width) — on a narrow
+          screen that cap is reached a couple columns in, so the sticky
+          column desyncs from scroll right around there. */}
       <div
         data-scroll-hide
         className="inline-flex flex-col max-w-full overflow-x-auto rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card print:overflow-visible"
       >
         {/* ── Header Row ── */}
-        <div className="flex border-b-2 border-(--tf-border) print:border-b-0">
+        <div className="flex w-max border-b-2 border-(--tf-border) print:border-b-0">
           {/* Corner cell — sticky so it (and the row numbers below it) stay
               visible while horizontally scrolling a wide table on mobile. */}
           <div
@@ -464,7 +470,7 @@ export function TableEditor({
         {rows.map((row, ri) => (
           <div
             key={row.id}
-            className="flex border-b border-border/60 print:border-b-0 group/row"
+            className="flex w-max border-b border-border/60 print:border-b-0 group/row"
             style={{ height: row.height }}
             onMouseEnter={() => setHoveredRowId(row.id)}
             onMouseLeave={() => setHoveredRowId(null)}
@@ -509,7 +515,7 @@ export function TableEditor({
         {/* ── Add row ── */}
         {/* Only shown once a row has been deleted, to restore capacity back up to MAX_ROWS. */}
         {rows.length < MAX_ROWS && (
-          <div className="flex print:hidden">
+          <div className="flex w-max print:hidden">
             <div
               className="sticky left-0 z-20 shrink-0 bg-(--tf-soft) border-r border-(--tf-border)"
               style={{ width: ROW_NUM_W }}

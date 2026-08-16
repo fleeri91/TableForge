@@ -377,7 +377,7 @@ export function App() {
       </header>
 
       {/* Canvas */}
-      <main data-scroll-hide className="flex-1 overflow-auto p-3 sm:p-6 md:p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
+      <main data-scroll-hide className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6 md:p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
         <TableEditor
           key={`${storageKey}-${resetCount}`}
           template={template}
