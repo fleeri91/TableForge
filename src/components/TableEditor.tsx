@@ -4,7 +4,6 @@ import { CELL_COLORS } from "../config/cellColors";
 import { CELL_EMOJIS } from "../config/cellEmojis";
 import type { TableTemplate } from "../config/templates";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
@@ -180,7 +179,6 @@ export function TableEditor({
   const [cellHandicaps, setCellHandicaps] = useState<Record<string, Handicap>>(
     () => (saved?.cellHandicaps as Record<string, Handicap>) ?? {},
   );
-  const [editingHeader, setEditingHeader] = useState<string | null>(null);
 
   // ── Persist to localStorage ────────────────────────────────────────────────
   // Debounced: typing fires many state updates in
@@ -297,11 +295,6 @@ export function TableEditor({
     if (ctxMenu?.colId === colId) setCtxMenu(null);
   };
 
-  const renameColumn = (colId: string, name: string) =>
-    setColumns((prev) =>
-      prev.map((c) => (c.id === colId ? { ...c, name } : c)),
-    );
-
   const cycleDistance = (colId: string, direction: -1 | 1) =>
     setColumns((prev) =>
       prev.map((c) =>
@@ -416,67 +409,49 @@ export function TableEditor({
               className="relative shrink-0 bg-(--tf-soft) border-r border-(--tf-border) print:border-r-0 group"
               style={{ width: col.width, height: 38 }}
             >
-              {editingHeader === col.id ? (
-                <Input
-                  className="absolute inset-0 h-full w-full rounded-none border-0 px-2 text-center text-sm font-medium focus-visible:ring-1"
-                  value={col.name}
-                  onChange={(e) => renameColumn(col.id, e.target.value)}
-                  onBlur={() => setEditingHeader(null)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === "Escape")
-                      setEditingHeader(null);
-                  }}
-                  autoFocus
-                />
-              ) : (
-                <div
-                  className="flex items-center justify-center gap-1 h-full px-2 text-sm font-semibold text-muted-foreground cursor-default select-none"
-                  onClick={() => setEditingHeader(col.id)}
-                  title="Tap to rename"
+              <div className="flex items-center justify-center gap-1 h-full px-2 text-sm font-semibold text-muted-foreground select-none">
+                <span className="truncate">{col.name || colLabel(ci)}</span>
+                <Badge
+                  variant="secondary"
+                  render={
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cycleDistance(col.id, 1);
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        cycleDistance(col.id, -1);
+                      }}
+                    />
+                  }
+                  className="rounded-sm w-7 h-7 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
                 >
-                  <span className="truncate">{col.name || colLabel(ci)}</span>
-                  <Badge
-                    variant="secondary"
-                    render={
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cycleDistance(col.id, 1);
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          cycleDistance(col.id, -1);
-                        }}
-                      />
-                    }
-                    className="rounded-sm w-7 h-7 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
-                  >
-                    {col.distance}
-                  </Badge>
-                  <Badge
-                    variant="secondary"
-                    render={
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          cycleStartMethod(col.id, 1);
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          cycleStartMethod(col.id, -1);
-                        }}
-                      />
-                    }
-                    className="rounded-sm w-7 h-7 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
-                  >
-                    {col.startMethod}
-                  </Badge>
-                </div>
-              )}
+                  {col.distance}
+                </Badge>
+                <Badge
+                  variant="secondary"
+                  render={
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cycleStartMethod(col.id, 1);
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        cycleStartMethod(col.id, -1);
+                      }}
+                    />
+                  }
+                  className="rounded-sm w-7 h-7 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
+                >
+                  {col.startMethod}
+                </Badge>
+              </div>
             </div>
           ))}
         </div>
