@@ -391,7 +391,7 @@ export function TableEditor({
           column desyncs from scroll right around there. */}
       <div
         data-scroll-hide
-        className="inline-flex flex-col max-w-full overflow-x-auto rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card print:overflow-visible"
+        className="animate-in fade-in zoom-in-[0.98] duration-300 inline-flex flex-col max-w-full overflow-x-auto rounded-xl border border-(--tf-border) border-t-[3px] border-t-(--tf-accent) shadow-lg bg-card print:overflow-visible"
       >
         {/* ── Header Row ── */}
         <div className="flex w-max border-b-2 border-(--tf-border) print:border-b-0">
@@ -409,7 +409,7 @@ export function TableEditor({
               className="relative shrink-0 bg-(--tf-soft) border-r border-(--tf-border) print:border-r-0 group"
               style={{ width: col.width, height: 38 }}
             >
-              <div className="flex items-center justify-center gap-1 h-full px-2 text-sm font-semibold text-muted-foreground select-none">
+              <div className="flex items-center justify-center gap-1 h-full px-2 font-display text-sm font-bold tracking-tight text-muted-foreground select-none">
                 <span className="truncate">{col.name || colLabel(ci)}</span>
                 <Badge
                   variant="secondary"
@@ -427,7 +427,7 @@ export function TableEditor({
                       }}
                     />
                   }
-                  className="rounded-sm w-7 h-7 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
+                  className="rounded-[5px] size-8 sm:size-7 shrink-0 justify-center font-display font-bold bg-(--tf-accent) text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.18)] transition-transform hover:scale-105 active:scale-95 active:shadow-none"
                 >
                   {col.distance}
                 </Badge>
@@ -447,7 +447,7 @@ export function TableEditor({
                       }}
                     />
                   }
-                  className="rounded-sm w-7 h-7 shrink-0 justify-center font-bold bg-(--tf-accent) text-white hover:opacity-85"
+                  className="rounded-[5px] size-8 sm:size-7 shrink-0 justify-center font-display font-bold bg-(--tf-accent) text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.18)] transition-transform hover:scale-105 active:scale-95 active:shadow-none"
                 >
                   {col.startMethod}
                 </Badge>
@@ -469,7 +469,7 @@ export function TableEditor({
                 scrolling a wide table on mobile. */}
             <div
               className={[
-                "sticky left-0 z-20 shrink-0 flex items-center justify-center border-r border-(--tf-border) print:static print:border-r-0 text-xs text-muted-foreground select-none cursor-default transition-colors",
+                "sticky left-0 z-20 shrink-0 flex items-center justify-center border-r border-(--tf-border) print:static print:border-r-0 font-display text-xs font-bold tabular-nums text-muted-foreground select-none cursor-default transition-colors",
                 hoveredRowId === row.id ? "bg-(--tf-accent)/15" : "bg-(--tf-soft)",
               ].join(" ")}
               style={{ width: ROW_NUM_W }}
@@ -672,7 +672,7 @@ const TableCell = memo(function TableCell({
               : "bottom-0 translate-y-1/2",
           ].join(" ")}
         >
-          <span className="rounded-full bg-(--tf-accent) text-white text-[9px] font-bold leading-none px-1.5 py-0.5 shadow-sm whitespace-nowrap">
+          <span className="rounded-full bg-(--tf-accent) text-white font-display text-[9px] font-bold tabular-nums leading-none px-1.5 py-0.5 shadow-sm whitespace-nowrap">
             +{handicap.meters}m
           </span>
         </div>
@@ -745,7 +745,7 @@ function ContextMenu({
           const { active, onSelect } = item.colorPicker;
           return (
             <div key={i} className="px-3 pt-2.5 pb-1.5">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Cell color
               </p>
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -791,7 +791,7 @@ function ContextMenu({
           const { active, onToggle } = item.emojiPicker;
           return (
             <div key={i} className="px-3 pt-2 pb-2.5">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+              <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Emojis
               </p>
               <div className="grid grid-cols-5 gap-1">
@@ -820,7 +820,7 @@ function ContextMenu({
           return (
             <div key={i} className="px-3 pt-2.5 pb-1.5">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                   Handicap
                 </p>
                 {active && (
@@ -846,7 +846,7 @@ function ContextMenu({
                       <button
                         key={meters}
                         className={[
-                          "h-6 px-1.5 rounded-md text-[11px] font-medium transition-colors",
+                          "h-6 px-1.5 rounded-md font-display text-[11px] font-bold tabular-nums transition-colors",
                           isActive
                             ? "bg-(--tf-accent) text-white"
                             : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -903,11 +903,14 @@ function ContextMenu({
           onClick={onClose}
         />
         <div
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[80vh] flex-col rounded-t-2xl border-t border-border bg-popover text-popover-foreground shadow-2xl animate-in slide-in-from-bottom duration-200"
+          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[80vh] flex-col rounded-t-2xl border-t-[3px] border-t-(--tf-accent) bg-popover text-popover-foreground shadow-2xl animate-in slide-in-from-bottom duration-200"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
-            <span className="text-sm font-semibold text-foreground">
+          <div className="flex justify-center pt-2" aria-hidden>
+            <span className="h-1 w-9 rounded-full bg-border" />
+          </div>
+          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
+            <span className="font-display text-base font-bold tracking-tight text-foreground">
               Cell options
             </span>
             <button
@@ -929,7 +932,7 @@ function ContextMenu({
   return (
     <div
       ref={clampToViewport}
-      className="fixed z-50 bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
+      className="fixed z-50 bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border border-t-[3px] border-t-(--tf-accent) ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
       style={{ left: x, top: y }}
       onClick={(e) => e.stopPropagation()}
     >

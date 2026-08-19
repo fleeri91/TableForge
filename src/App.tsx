@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Grid3x3, Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Check } from 'lucide-react';
+import { Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Check } from 'lucide-react';
 import { TableEditor } from './components/TableEditor';
 import { TABLE_TEMPLATES, type TableTemplate } from './config/templates';
 import { getGameTypeColor } from './config/gameTypes';
@@ -208,7 +208,7 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40 flex flex-col transition-colors">
+    <div className="min-h-screen bg-muted/40 tf-glow flex flex-col transition-colors">
       {/* Toolbar. On mobile this is two fixed rows — brand (with the theme
           toggle, so it's reachable without scrolling) and a horizontally-
           scrollable actions row — instead of one `flex-wrap` row. Wrapping
@@ -217,14 +217,10 @@ export function App() {
           separators and a lone button dangling on its own line. `sm:contents`
           on both rows dissolves them back into one flat, wrapping row at the
           `sm` breakpoint, so desktop is pixel-identical to before. */}
-      <header className="print:hidden bg-card border-b border-border px-3 sm:px-5 py-2.5 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 shadow-sm">
+      <header className="print:hidden relative bg-card border-b border-border px-3 sm:px-5 py-2.5 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-[3px] before:bg-primary">
         <div className="flex items-center justify-between gap-2 sm:contents">
-          <div className="flex items-center gap-2">
-            <Grid3x3 className="size-5 text-primary" />
-            <span className="text-base font-semibold text-foreground tracking-tight">
-              TableForge
-            </span>
-          </div>
+          <Brand />
+
           {/* Mobile-only theme toggle, kept beside the brand so it's always
               visible; the desktop instance further down covers `sm:` and up. */}
           <Button variant="ghost" size="icon" className="size-9 sm:hidden" onClick={() => setIsDark(d => !d)} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
@@ -238,7 +234,7 @@ export function App() {
         <div data-scroll-hide className="flex items-center gap-2 overflow-x-auto sm:contents">
           {/* Template picker */}
           <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline text-xs text-muted-foreground font-medium">
+            <span className="hidden sm:inline font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Template
             </span>
             <Select
@@ -282,7 +278,7 @@ export function App() {
                   <Save />
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-64 max-w-[calc(100vw-1.5rem)]">
-                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     Save table as
                   </p>
                   <Input
@@ -326,6 +322,9 @@ export function App() {
               <FolderOpen />
             </PopoverTrigger>
             <PopoverContent data-scroll-hide align="start" className="w-72 max-w-[calc(100vw-1.5rem)] max-h-80 overflow-y-auto p-1.5 gap-0">
+              <p className="font-display px-2 pt-1 pb-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                Saved tables
+              </p>
               {savedTables.length === 0 ? (
                 <p className="px-2 py-3 text-xs text-muted-foreground">
                   No saved tables yet. Use Save to create one.
@@ -347,7 +346,7 @@ export function App() {
                       <p className="text-sm font-medium text-foreground truncate">
                         {entry.name}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground tabular-nums">
                         {formatRelative(entry.savedAt)}
                       </p>
                     </div>
@@ -371,7 +370,7 @@ export function App() {
           </Button>
 
           <Badge variant="outline" className="hidden lg:inline-flex ml-1 text-muted-foreground font-normal shrink-0">
-            Tap ⋯ on a cell for options · Tap a header to rename
+            Tap a cell for options · Tap a header to rename
           </Badge>
 
           {/* Reset button */}
@@ -411,6 +410,32 @@ export function App() {
   );
 }
 
+// Brand mark — a tote-board-style monogram tile paired with a condensed,
+// tightly-tracked wordmark. Reused at toolbar scale in the header and at
+// display scale on the startup screen.
+function Brand({ large = false }: { large?: boolean }) {
+  return (
+    <div className="flex items-center gap-2.5">
+      <span
+        className={[
+          "flex items-center justify-center shrink-0 rounded-md bg-primary text-primary-foreground font-display font-bold shadow-sm",
+          large ? "size-11 text-xl" : "size-7 text-sm",
+        ].join(" ")}
+      >
+        TF
+      </span>
+      <span
+        className={[
+          "font-display font-semibold text-foreground tracking-tight leading-none",
+          large ? "text-4xl" : "text-xl",
+        ].join(" ")}
+      >
+        TableForge
+      </span>
+    </div>
+  );
+}
+
 function StartupScreen({
   savedTables, onChoose, onOpenSave,
 }: {
@@ -421,23 +446,25 @@ function StartupScreen({
   const recentSaves = [...savedTables].sort((a, b) => b.savedAt - a.savedAt);
 
   return (
-    <div className="min-h-screen bg-muted/40 flex flex-col items-center justify-center gap-8 p-6">
-      <div className="flex items-center gap-2">
-        <Grid3x3 className="size-7 text-primary" />
-        <span className="text-2xl font-semibold text-foreground tracking-tight">
-          TableForge
-        </span>
+    <div className="min-h-screen bg-muted/40 tf-glow flex flex-col items-center justify-center gap-9 p-6 overflow-hidden">
+      <div className="animate-in fade-in slide-in-from-top-3 duration-500">
+        <Brand large />
       </div>
-      <div className="flex flex-col items-center gap-3">
-        <p className="text-sm text-muted-foreground">Choose a game to get started</p>
+      <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
+          Choose a game to get started
+        </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-md">
-          {TABLE_TEMPLATES.map(t => (
+          {TABLE_TEMPLATES.map((t, i) => (
             <button
               key={t.id}
               type="button"
               onClick={() => onChoose(t)}
-              className="flex items-center justify-center rounded-xl border border-border border-t-[3px] bg-card px-4 py-5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent"
-              style={{ borderTopColor: getGameTypeColor(t.id) }}
+              style={{
+                borderTopColor: getGameTypeColor(t.id),
+                animationDelay: `${120 + i * 40}ms`,
+              }}
+              className="animate-in fade-in zoom-in-95 fill-mode-both group flex items-center justify-center rounded-xl border border-border border-t-[3px] bg-card px-4 py-6 font-display text-xl font-bold tracking-tight text-foreground shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md hover:bg-accent active:translate-y-0"
             >
               {t.label}
             </button>
@@ -446,10 +473,10 @@ function StartupScreen({
       </div>
 
       {recentSaves.length > 0 && (
-        <div className="flex flex-col items-center gap-3 w-full max-w-md">
+        <div className="flex flex-col items-center gap-3 w-full max-w-md animate-in fade-in duration-500 delay-300 fill-mode-both">
           <div className="flex items-center gap-3 w-full">
             <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground font-medium">or open a saved table</span>
+            <span className="text-xs text-muted-foreground font-medium shrink-0">or open a saved table</span>
             <Separator className="flex-1" />
           </div>
           <div data-scroll-hide className="flex flex-col gap-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-sm">
@@ -458,7 +485,7 @@ function StartupScreen({
                 key={entry.id}
                 type="button"
                 onClick={() => onOpenSave(entry)}
-                className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
               >
                 <span
                   className="size-2 shrink-0 rounded-full"
@@ -467,7 +494,7 @@ function StartupScreen({
                 <span className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">
                   {entry.name}
                 </span>
-                <span className="shrink-0 text-xs text-muted-foreground">
+                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                   {formatRelative(entry.savedAt)}
                 </span>
               </button>

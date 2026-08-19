@@ -2,16 +2,30 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* Only the Latin subset is loaded (covers Swedish å/ä/ö too) instead of
-   `@fontsource-variable/inter`'s default import, which bundles cyrillic,
-   cyrillic-ext, greek, greek-ext and vietnamese subsets the UI never uses —
-   trimming ~170KB of woff2 files that would otherwise ship in the build. */
+/* Only the Latin subset is loaded (covers Swedish å/ä/ö too) instead of each
+   package's default import, which bundles cyrillic, cyrillic-ext, greek,
+   greek-ext and vietnamese subsets the UI never uses — trimming well over
+   100KB of woff2 files that would otherwise ship in the build.
+
+   Archivo (grotesk, slightly industrial) is the body/UI face; Big Shoulders
+   Text — drawn for the Chicago skyline sign lettering, and metrics-tuned for
+   small sizes rather than its poster-scale "Display" sibling — is reserved
+   for numerals, labels and headings, giving the whole app the compressed,
+   high-contrast rhythm of a tote board or a race-day form guide. */
 @font-face {
-  font-family: "Inter Variable";
+  font-family: "Archivo Variable";
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2-variations");
+  src: url("@fontsource-variable/archivo/files/archivo-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: "Big Shoulders Text Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("@fontsource-variable/big-shoulders-text/files/big-shoulders-text-latin-wght-normal.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 
@@ -54,8 +68,9 @@
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: Inter, sans-serif;
+  --font-heading: var(--font-display);
+  --font-display: "Big Shoulders Text Variable", "Arial Narrow", sans-serif;
+  --font-sans: "Archivo Variable", ui-sans-serif, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -122,45 +137,48 @@
   --color-destructive-foreground: var(--destructive-foreground);
 }
 
+/* "Tote board" palette — warm paper/ink in light mode, lit-scoreboard amber
+   on near-black in dark mode. Kept a neutral hue (not blue/purple, which are
+   already spoken for by two game-type accents in gameTypes.ts) so the brand
+   color never fights the per-template accent stripe. */
 :root {
-  --background: oklch(0.9842 0.0034 247.8575);
-  --foreground: oklch(0.2795 0.0368 260.0310);
-  --card: oklch(1.0000 0 0);
-  --card-foreground: oklch(0.2795 0.0368 260.0310);
-  --popover: oklch(1.0000 0 0);
-  --popover-foreground: oklch(0.2795 0.0368 260.0310);
-  --primary: oklch(0.5854 0.2041 277.1173);
+  --background: oklch(0.9750 0.0080 85.8710);
+  --foreground: oklch(0.2450 0.0250 55.0000);
+  --card: oklch(0.9950 0.0040 85.8710);
+  --card-foreground: oklch(0.2450 0.0250 55.0000);
+  --popover: oklch(0.9950 0.0040 85.8710);
+  --popover-foreground: oklch(0.2450 0.0250 55.0000);
+  --primary: oklch(0.5854 0.1700 55.0000);
   --primary-foreground: oklch(1.0000 0 0);
-  --secondary: oklch(0.9276 0.0058 264.5313);
-  --secondary-foreground: oklch(0.3729 0.0306 259.7328);
-  --muted: oklch(0.9670 0.0029 264.5419);
-  --muted-foreground: oklch(0.5510 0.0234 264.3637);
-  --accent: oklch(0.9299 0.0334 272.7879);
-  --accent-foreground: oklch(0.3729 0.0306 259.7328);
+  --secondary: oklch(0.9330 0.0130 80.0000);
+  --secondary-foreground: oklch(0.3729 0.0250 55.0000);
+  --muted: oklch(0.9600 0.0090 82.0000);
+  --muted-foreground: oklch(0.5300 0.0220 60.0000);
+  --accent: oklch(0.9250 0.0500 65.0000);
+  --accent-foreground: oklch(0.3600 0.0400 55.0000);
   --destructive: oklch(0.6368 0.2078 25.3313);
-  --border: oklch(0.8717 0.0093 258.3382);
-  --input: oklch(0.8717 0.0093 258.3382);
-  --ring: oklch(0.5854 0.2041 277.1173);
-  --chart-1: oklch(0.5854 0.2041 277.1173);
-  --chart-2: oklch(0.5106 0.2301 276.9656);
-  --chart-3: oklch(0.4568 0.2146 277.0229);
-  --chart-4: oklch(0.3984 0.1773 277.3662);
-  --chart-5: oklch(0.3588 0.1354 278.6973);
+  --border: oklch(0.8600 0.0220 70.0000);
+  --input: oklch(0.8600 0.0220 70.0000);
+  --ring: oklch(0.5854 0.1700 55.0000);
+  --chart-1: oklch(0.5854 0.1700 55.0000);
+  --chart-2: oklch(0.5106 0.1900 60.0000);
+  --chart-3: oklch(0.4568 0.1750 65.0000);
+  --chart-4: oklch(0.3984 0.1450 70.0000);
+  --chart-5: oklch(0.3588 0.1100 75.0000);
   --radius: 0.5rem;
-  --sidebar: oklch(0.9670 0.0029 264.5419);
-  --sidebar-foreground: oklch(0.2795 0.0368 260.0310);
-  --sidebar-primary: oklch(0.5854 0.2041 277.1173);
+  --sidebar: oklch(0.9600 0.0090 82.0000);
+  --sidebar-foreground: oklch(0.2450 0.0250 55.0000);
+  --sidebar-primary: oklch(0.5854 0.1700 55.0000);
   --sidebar-primary-foreground: oklch(1.0000 0 0);
-  --sidebar-accent: oklch(0.9299 0.0334 272.7879);
-  --sidebar-accent-foreground: oklch(0.3729 0.0306 259.7328);
-  --sidebar-border: oklch(0.8717 0.0093 258.3382);
-  --sidebar-ring: oklch(0.5854 0.2041 277.1173);
+  --sidebar-accent: oklch(0.9250 0.0500 65.0000);
+  --sidebar-accent-foreground: oklch(0.3600 0.0400 55.0000);
+  --sidebar-border: oklch(0.8600 0.0220 70.0000);
+  --sidebar-ring: oklch(0.5854 0.1700 55.0000);
   --destructive-foreground: oklch(1.0000 0 0);
-  --font-sans: Inter, sans-serif;
   --font-serif: Merriweather, serif;
   --font-mono: JetBrains Mono, monospace;
-  --shadow-color: hsl(0 0% 0%);
-  --shadow-opacity: 0.1;
+  --shadow-color: oklch(0.2450 0.0250 55.0000);
+  --shadow-opacity: 0.10;
   --shadow-blur: 8px;
   --shadow-spread: -1px;
   --shadow-offset-x: 0px;
@@ -179,44 +197,43 @@
 }
 
 .dark {
-  --background: oklch(0.2077 0.0398 265.7549);
-  --foreground: oklch(0.9288 0.0126 255.5078);
-  --card: oklch(0.2795 0.0368 260.0310);
-  --card-foreground: oklch(0.9288 0.0126 255.5078);
-  --popover: oklch(0.2795 0.0368 260.0310);
-  --popover-foreground: oklch(0.9288 0.0126 255.5078);
-  --primary: oklch(0.6801 0.1583 276.9349);
-  --primary-foreground: oklch(0.2077 0.0398 265.7549);
-  --secondary: oklch(0.3351 0.0331 260.9120);
-  --secondary-foreground: oklch(0.8717 0.0093 258.3382);
-  --muted: oklch(0.2427 0.0381 259.9437);
-  --muted-foreground: oklch(0.7137 0.0192 261.3246);
-  --accent: oklch(0.3729 0.0306 259.7328);
-  --accent-foreground: oklch(0.8717 0.0093 258.3382);
+  --background: oklch(0.1750 0.0180 55.0000);
+  --foreground: oklch(0.9450 0.0180 80.0000);
+  --card: oklch(0.2200 0.0220 55.0000);
+  --card-foreground: oklch(0.9450 0.0180 80.0000);
+  --popover: oklch(0.2200 0.0220 55.0000);
+  --popover-foreground: oklch(0.9450 0.0180 80.0000);
+  --primary: oklch(0.7600 0.1550 72.0000);
+  --primary-foreground: oklch(0.1750 0.0300 55.0000);
+  --secondary: oklch(0.2850 0.0230 55.0000);
+  --secondary-foreground: oklch(0.8900 0.0180 78.0000);
+  --muted: oklch(0.2450 0.0200 55.0000);
+  --muted-foreground: oklch(0.6950 0.0230 72.0000);
+  --accent: oklch(0.3200 0.0450 62.0000);
+  --accent-foreground: oklch(0.9100 0.0250 78.0000);
   --destructive: oklch(0.6368 0.2078 25.3313);
-  --border: oklch(0.4461 0.0263 256.8018);
-  --input: oklch(0.4461 0.0263 256.8018);
-  --ring: oklch(0.6801 0.1583 276.9349);
-  --chart-1: oklch(0.6801 0.1583 276.9349);
-  --chart-2: oklch(0.5854 0.2041 277.1173);
-  --chart-3: oklch(0.5106 0.2301 276.9656);
-  --chart-4: oklch(0.4568 0.2146 277.0229);
-  --chart-5: oklch(0.3984 0.1773 277.3662);
-  --sidebar: oklch(0.2795 0.0368 260.0310);
-  --sidebar-foreground: oklch(0.9288 0.0126 255.5078);
-  --sidebar-primary: oklch(0.6801 0.1583 276.9349);
-  --sidebar-primary-foreground: oklch(0.2077 0.0398 265.7549);
-  --sidebar-accent: oklch(0.3729 0.0306 259.7328);
-  --sidebar-accent-foreground: oklch(0.8717 0.0093 258.3382);
-  --sidebar-border: oklch(0.4461 0.0263 256.8018);
-  --sidebar-ring: oklch(0.6801 0.1583 276.9349);
-  --destructive-foreground: oklch(0.2077 0.0398 265.7549);
+  --border: oklch(0.3450 0.0270 58.0000);
+  --input: oklch(0.3450 0.0270 58.0000);
+  --ring: oklch(0.7600 0.1550 72.0000);
+  --chart-1: oklch(0.7600 0.1550 72.0000);
+  --chart-2: oklch(0.6801 0.1650 68.0000);
+  --chart-3: oklch(0.5854 0.1700 62.0000);
+  --chart-4: oklch(0.5106 0.1550 68.0000);
+  --chart-5: oklch(0.4568 0.1300 72.0000);
+  --sidebar: oklch(0.2200 0.0220 55.0000);
+  --sidebar-foreground: oklch(0.9450 0.0180 80.0000);
+  --sidebar-primary: oklch(0.7600 0.1550 72.0000);
+  --sidebar-primary-foreground: oklch(0.1750 0.0300 55.0000);
+  --sidebar-accent: oklch(0.3200 0.0450 62.0000);
+  --sidebar-accent-foreground: oklch(0.9100 0.0250 78.0000);
+  --sidebar-border: oklch(0.3450 0.0270 58.0000);
+  --sidebar-ring: oklch(0.7600 0.1550 72.0000);
+  --destructive-foreground: oklch(1.0000 0 0);
   --radius: 0.5rem;
-  --font-sans: Inter, sans-serif;
   --font-serif: Merriweather, serif;
   --font-mono: JetBrains Mono, monospace;
   --shadow-color: hsl(0 0% 0%);
-  --shadow-opacity: 0.1;
+  --shadow-opacity: 0.30;
   --shadow-blur: 8px;
   --shadow-spread: -1px;
   --shadow-offset-x: 0px;
@@ -231,6 +248,16 @@
   --shadow-lg: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 4px 6px -2px hsl(0 0% 0% / 0.10);
   --shadow-xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 8px 10px -2px hsl(0 0% 0% / 0.10);
   --shadow-2xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.25);
+}
+
+/* A faint amber spotlight behind the toolbar/canvas — reads as a board lit
+   from above rather than a flat, empty surface. Kept subtle enough (low
+   color-mix %) to stay out of the way of table content sitting on top. */
+.tf-glow {
+  background-image: radial-gradient(ellipse 42rem 24rem at 50% -4rem, color-mix(in oklch, var(--primary) 7%, transparent), transparent 70%);
+}
+.dark .tf-glow {
+  background-image: radial-gradient(ellipse 42rem 24rem at 50% -4rem, color-mix(in oklch, var(--primary) 11%, transparent), transparent 70%);
 }
 
 @layer base {
