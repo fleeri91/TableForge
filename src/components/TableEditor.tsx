@@ -31,6 +31,12 @@ interface Row {
   height: number;
 }
 
+// One emoji per column can be highlighted as that column's top pick.
+interface TopPick {
+  rowId: string;
+  emoji: string;
+}
+
 interface ContextMenuState {
   x: number;
   y: number;
@@ -51,6 +57,9 @@ interface MenuItem {
   emojiPicker?: {
     active: string[];
     onToggle: (emoji: string) => void;
+    // The emoji in this cell marked as its column's top pick, if any.
+    topPick: string | null;
+    onToggleTopPick: (emoji: string) => void;
   };
   handicapPicker?: {
     active: Handicap | null;
@@ -179,6 +188,9 @@ export function TableEditor({
   const [cellHandicaps, setCellHandicaps] = useState<Record<string, Handicap>>(
     () => (saved?.cellHandicaps as Record<string, Handicap>) ?? {},
   );
+  const [columnTopPicks, setColumnTopPicks] = useState<Record<string, TopPick>>(
+    () => (saved?.columnTopPicks as Record<string, TopPick>) ?? {},
+  );
 
   // ── Persist to localStorage ────────────────────────────────────────────────
   // Debounced: typing fires many state updates in
@@ -195,6 +207,7 @@ export function TableEditor({
     cellEmojis,
     cellDisabled,
     cellHandicaps,
+    columnTopPicks,
   };
 
   const persist = useCallback(() => {
@@ -219,6 +232,7 @@ export function TableEditor({
     cellEmojis,
     cellDisabled,
     cellHandicaps,
+    columnTopPicks,
   ]);
 
   useEffect(() => () => persist(), [persist]);
@@ -240,7 +254,16 @@ export function TableEditor({
 
   const getCellEmojis = (rId: string, cId: string) =>
     cellEmojis[cellKey(rId, cId)] ?? EMPTY_EMOJIS;
-  const toggleCellEmoji = (rId: string, cId: string, emoji: string) =>
+  const toggleCellEmoji = (rId: string, cId: string, emoji: string) => {
+    // Removing the emoji that is the column's top pick also clears the pick.
+    const pick = columnTopPicks[cId];
+    if (
+      pick?.rowId === rId &&
+      pick.emoji === emoji &&
+      getCellEmojis(rId, cId).includes(emoji)
+    ) {
+      setColumnTopPicks(({ [cId]: _, ...rest }) => rest);
+    }
     setCellEmojis((prev) => {
       const k = cellKey(rId, cId);
       const current = prev[k] ?? [];
@@ -252,6 +275,23 @@ export function TableEditor({
         return rest;
       }
       return { ...prev, [k]: next };
+    });
+  };
+
+  // The emoji in this cell that is its column's top pick, or null.
+  const getCellTopPick = (rId: string, cId: string) => {
+    const pick = columnTopPicks[cId];
+    return pick?.rowId === rId ? pick.emoji : null;
+  };
+  // Marking a new top pick replaces any previous one in the same column.
+  const toggleCellTopPick = (rId: string, cId: string, emoji: string) =>
+    setColumnTopPicks((prev) => {
+      const pick = prev[cId];
+      if (pick?.rowId === rId && pick.emoji === emoji) {
+        const { [cId]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [cId]: { rowId: rId, emoji } };
     });
 
   const isCellDisabled = (rId: string, cId: string) =>
@@ -495,6 +535,7 @@ export function TableEditor({
                 isHovered={hoveredRowId === row.id}
                 color={getCellColor(row.id, col.id)}
                 emojis={getCellEmojis(row.id, col.id)}
+                topPick={getCellTopPick(row.id, col.id)}
                 handicap={getCellHandicap(row.id, col.id)}
                 onOpenMenu={openCtxMenu}
               />
@@ -541,6 +582,9 @@ export function TableEditor({
                 active: getCellEmojis(ctxMenu.rowId, ctxMenu.colId),
                 onToggle: (emoji) =>
                   toggleCellEmoji(ctxMenu.rowId, ctxMenu.colId, emoji),
+                topPick: getCellTopPick(ctxMenu.rowId, ctxMenu.colId),
+                onToggleTopPick: (emoji) =>
+                  toggleCellTopPick(ctxMenu.rowId, ctxMenu.colId, emoji),
               },
             },
             {
@@ -602,6 +646,7 @@ interface TableCellProps {
   isHovered: boolean;
   color: string | null;
   emojis: string[];
+  topPick: string | null;
   handicap: Handicap | null;
   onOpenMenu: (e: React.MouseEvent, rowId: string, colId: string) => void;
 }
@@ -622,6 +667,7 @@ const TableCell = memo(function TableCell({
   isHovered,
   color,
   emojis,
+  topPick,
   handicap,
   onOpenMenu,
 }: TableCellProps) {
@@ -655,7 +701,11 @@ const TableCell = memo(function TableCell({
       {!isDisabled && emojis.length > 0 && (
         <div className="absolute inset-0 flex items-center px-2 gap-1 pointer-events-none overflow-hidden">
           {emojis.map((e) => (
-            <span key={e} style={{ fontSize: 18 }}>
+            <span
+              key={e}
+              style={{ fontSize: 18 }}
+              data-top-pick={e === topPick || undefined}
+            >
               {e}
             </span>
           ))}
@@ -788,7 +838,8 @@ function ContextMenu({
         }
 
         if (item.emojiPicker) {
-          const { active, onToggle } = item.emojiPicker;
+          const { active, onToggle, topPick, onToggleTopPick } =
+            item.emojiPicker;
           return (
             <div key={i} className="px-3 pt-2 pb-2.5">
               <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
@@ -811,6 +862,36 @@ function ContextMenu({
                   </button>
                 ))}
               </div>
+              {active.length > 0 && (
+                <>
+                  <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-2.5 mb-2">
+                    Column top pick
+                  </p>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {active.map((emoji) => (
+                      <button
+                        key={emoji}
+                        className={[
+                          "w-8 h-8 rounded-lg text-base flex items-center justify-center transition-colors",
+                          topPick === emoji
+                            ? "bg-accent ring-1 ring-amber-400"
+                            : "hover:bg-accent",
+                        ].join(" ")}
+                        onClick={() => onToggleTopPick(emoji)}
+                        title={
+                          topPick === emoji
+                            ? "Remove top pick"
+                            : "Mark as this column's top pick"
+                        }
+                      >
+                        <span data-top-pick={topPick === emoji || undefined}>
+                          {emoji}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           );
         }
