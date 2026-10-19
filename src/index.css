@@ -332,5 +332,8 @@
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='white' d='M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.7l5.9-.9z'/%3E%3C/svg%3E")
       center / 8px no-repeat,
     linear-gradient(160deg, #ffd54f, #f59e0b);
-  box-shadow: 0 1px 2.5px rgb(0 0 0 / 0.4);
+  /* Dark shadow behind the badge lifts it off light fills (yellow especially). */
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.6),
+    0 0 6px rgb(0 0 0 / 0.35);
 }
