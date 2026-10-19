@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
-import { CELL_COLORS } from "../config/cellColors";
+import { CELL_COLORS, migrateCellColors } from "../config/cellColors";
 import { CELL_EMOJIS } from "../config/cellEmojis";
 import type { TableTemplate } from "../config/templates";
 import { Button } from "@/components/ui/button";
@@ -209,7 +209,7 @@ export function TableEditor({
     return Array.from({ length: template.rows }, () => makeRow());
   });
   const [cellColors, setCellColors] = useState<Record<string, string>>(
-    () => (saved?.cellColors as Record<string, string>) ?? {},
+    () => migrateCellColors((saved?.cellColors as Record<string, string>) ?? {}),
   );
   const [cellEmojis, setCellEmojis] = useState<Record<string, string[]>>(
     () => (saved?.cellEmojis as Record<string, string[]>) ?? {},
