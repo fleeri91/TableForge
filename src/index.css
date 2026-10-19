@@ -295,17 +295,28 @@
     display: none;
   }
 }
+/* Emojis on a colored cell get a thin dark halo, so their outlines stay
+   distinct against the fill instead of blending in. Applied to the inner
+   glyph only, so a top-pick badge (its parent's ::after) stays crisp. */
+[data-emoji-halo] [data-emoji-glyph] {
+  display: inline-block;
+  filter:
+    drop-shadow(0 0 1px rgb(0 0 0 / 0.6))
+    drop-shadow(0 0 1.5px rgb(0 0 0 / 0.3));
+}
+
 /* Column "top pick" emoji — a small gold star badge on its top-right corner,
    like a notification badge. Opted into via data attribute for the same
    Tailwind-scan reason as [data-scroll-hide] above. Cells can be any
    user-chosen color, so the badge carries its own white rim and shadow to
-   stay readable on every fill (yellow included) without covering the emoji. */
+   stay readable on every fill (yellow included) without covering the emoji.
+   The badge takes up no layout space. */
 [data-top-pick] {
   display: inline-block;
   position: relative;
   line-height: 1;
-  /* Room for the badge so it doesn't crowd the next emoji. */
-  margin-right: 4px;
+  /* No margin: the badge is absolutely positioned and overlaps the corner,
+     so marking a top pick never shifts the neighboring emojis. */
 }
 [data-top-pick]::after {
   content: "";

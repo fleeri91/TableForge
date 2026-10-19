@@ -94,6 +94,12 @@ interface MenuItem {
     onSet: (meters: number, position: HandicapPosition) => void;
     onClear: () => void;
   };
+  // A labeled on/off switch row, styled like the picker sections above it.
+  toggle?: {
+    label: string;
+    checked: boolean;
+    onToggle: () => void;
+  };
 }
 
 const HANDICAP_PRESETS = [20, 40, 60, 80];
@@ -138,7 +144,9 @@ function cellKey(rowId: string, colId: string) {
 // breakpoint. Mirrors the dark-mode media-query pattern in App.tsx.
 function useIsMobile() {
   const query = "(max-width: 639px)";
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia(query).matches);
+  const [isMobile, setIsMobile] = useState(
+    () => window.matchMedia(query).matches,
+  );
   useEffect(() => {
     const mq = window.matchMedia(query);
     const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
@@ -187,7 +195,10 @@ export function TableEditor({
   const [saved] = useState(() => loadSaved(storageKey));
 
   const [columns, setColumns] = useState<Column[]>(() => {
-    if (Array.isArray(saved?.columns) && (saved!.columns as Column[]).length > 0) {
+    if (
+      Array.isArray(saved?.columns) &&
+      (saved!.columns as Column[]).length > 0
+    ) {
       // Older saves may predate the distance/startMethod fields — default them.
       return (saved!.columns as Column[]).map((c) => ({
         ...c,
@@ -208,8 +219,8 @@ export function TableEditor({
       return saved!.rows as Row[];
     return Array.from({ length: template.rows }, () => makeRow());
   });
-  const [cellColors, setCellColors] = useState<Record<string, string>>(
-    () => migrateCellColors((saved?.cellColors as Record<string, string>) ?? {}),
+  const [cellColors, setCellColors] = useState<Record<string, string>>(() =>
+    migrateCellColors((saved?.cellColors as Record<string, string>) ?? {}),
   );
   const [cellEmojis, setCellEmojis] = useState<Record<string, string[]>>(
     () => (saved?.cellEmojis as Record<string, string[]>) ?? {},
@@ -538,7 +549,9 @@ export function TableEditor({
             <div
               className={[
                 "sticky left-0 z-20 shrink-0 flex items-center justify-center border-r border-(--tf-border) print:static print:border-r-0 font-display text-xs font-bold tabular-nums text-muted-foreground select-none cursor-default transition-colors",
-                hoveredRowId === row.id ? "bg-(--tf-accent)/15" : "bg-(--tf-soft)",
+                hoveredRowId === row.id
+                  ? "bg-(--tf-accent)/15"
+                  : "bg-(--tf-soft)",
               ].join(" ")}
               style={{ width: ROW_NUM_W }}
               onContextMenu={(e) =>
@@ -619,15 +632,23 @@ export function TableEditor({
               handicapPicker: {
                 active: getCellHandicap(ctxMenu.rowId, ctxMenu.colId),
                 onSet: (meters, position) =>
-                  setCellHandicap(ctxMenu.rowId, ctxMenu.colId, meters, position),
+                  setCellHandicap(
+                    ctxMenu.rowId,
+                    ctxMenu.colId,
+                    meters,
+                    position,
+                  ),
                 onClear: () => clearCellHandicap(ctxMenu.rowId, ctxMenu.colId),
               },
             },
+            { divider: true },
             {
-              label: isCellDisabled(ctxMenu.rowId, ctxMenu.colId)
-                ? "Aktivera cell"
-                : "Inaktivera cell",
-              onClick: () => toggleCellDisabled(ctxMenu.rowId, ctxMenu.colId),
+              toggle: {
+                label: "Inaktivera cell",
+                checked: isCellDisabled(ctxMenu.rowId, ctxMenu.colId),
+                onToggle: () =>
+                  toggleCellDisabled(ctxMenu.rowId, ctxMenu.colId),
+              },
             },
             { divider: true },
             {
@@ -727,14 +748,17 @@ const TableCell = memo(function TableCell({
     >
       {/* Emoji overlay */}
       {!isDisabled && emojis.length > 0 && (
-        <div className="absolute inset-0 flex items-center px-2 gap-1 pointer-events-none overflow-hidden">
+        <div
+          className="absolute inset-0 flex items-center px-2 gap-1 pointer-events-none overflow-hidden"
+          data-emoji-halo={color !== null || undefined}
+        >
           {emojis.map((e) => (
             <span
               key={e}
               style={{ fontSize: 18 }}
               data-top-pick={topPicks.includes(e) || undefined}
             >
-              {e}
+              <span data-emoji-glyph>{e}</span>
             </span>
           ))}
         </div>
@@ -819,191 +843,201 @@ function ContextMenu({
   }, [isMobile]);
 
   const content = items.map((item, i) => {
-        if (item.colorPicker) {
-          const { active, onSelect } = item.colorPicker;
-          return (
-            <div key={i} className="px-3 pt-2.5 pb-1.5">
-              <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Cellfärg
-              </p>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {/* Clear */}
-                <button
-                  className={[
-                    "w-6 h-6 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110 bg-background",
-                    active === null
-                      ? "border-primary scale-110"
-                      : "border-border",
-                  ].join(" ")}
-                  onClick={() => {
-                    onSelect(null);
-                    onClose();
-                  }}
-                  title="Ingen färg"
-                >
-                  <X className="size-2.5 text-muted-foreground" />
-                </button>
-                {CELL_COLORS.map((c) => (
-                  <button
-                    key={c.value}
-                    className={[
-                      "w-6 h-6 rounded-full border-2 transition-transform hover:scale-110",
-                      active === c.value
-                        ? "border-primary scale-110"
-                        : "border-transparent hover:border-muted-foreground",
-                    ].join(" ")}
-                    style={{ backgroundColor: c.value }}
-                    onClick={() => {
-                      onSelect(c.value);
-                      onClose();
-                    }}
-                    title={c.label}
-                  />
-                ))}
-              </div>
-            </div>
-          );
-        }
+    if (item.colorPicker) {
+      const { active, onSelect } = item.colorPicker;
+      return (
+        <div key={i} className="px-3 pt-2.5 pb-1.5">
+          <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Cellfärg
+          </p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {/* Clear */}
+            <button
+              className={[
+                "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110 bg-background",
+                active === null ? "border-primary scale-110" : "border-border",
+              ].join(" ")}
+              onClick={() => onSelect(null)}
+              title="Ingen färg"
+            >
+              <X className="size-2.5 text-muted-foreground" />
+            </button>
+            {CELL_COLORS.map((c) => (
+              <button
+                key={c.value}
+                className={[
+                  "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
+                  active === c.value
+                    ? "border-primary scale-110"
+                    : "border-transparent hover:border-muted-foreground",
+                ].join(" ")}
+                style={{ backgroundColor: c.value }}
+                onClick={() => onSelect(c.value)}
+                title={c.label}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
 
-        if (item.emojiPicker) {
-          // Each button's ::before pads its hit area by 5px, so the whole row
-          // (and a margin around it) is tappable without enlarging the visible
-          // buttons. Neighbors' pads overlap in the 6px gap; the later one wins.
-          const { active, onToggle, topPicks, onToggleTopPick } =
-            item.emojiPicker;
-          return (
-            <div key={i} className="px-3 pt-2 pb-2.5">
-              <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Emojis
+    if (item.emojiPicker) {
+      // Each button's ::before pads its hit area by 5px, so the whole row
+      // (and a margin around it) is tappable without enlarging the visible
+      // buttons. Neighbors' pads overlap in the 6px gap; the later one wins.
+      const { active, onToggle, topPicks, onToggleTopPick } = item.emojiPicker;
+      return (
+        <div key={i} className="px-3 pt-2 pb-2.5">
+          <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Emojis
+          </p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {CELL_EMOJIS.map((e) => (
+              <button
+                key={e.value}
+                className={[
+                  "relative p-4 w-6 h-6 rounded-lg text-[24px] leading-none flex items-center justify-center transition-colors before:absolute before:-inset-[5px] before:content-['']",
+                  active.includes(e.value)
+                    ? "bg-accent ring-1 ring-primary"
+                    : "hover:bg-accent",
+                ].join(" ")}
+                onClick={() => onToggle(e.value)}
+                title={e.label}
+              >
+                {e.value}
+              </button>
+            ))}
+          </div>
+          {active.length > 0 && (
+            <>
+              <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-2.5 mb-2">
+                Kolumnens toppval
               </p>
               <div className="flex items-center gap-1.5 flex-wrap">
-                {CELL_EMOJIS.map((e) => (
+                {active.map((emoji) => (
                   <button
-                    key={e.value}
+                    key={emoji}
                     className={[
-                      "relative w-6 h-6 rounded-md text-base flex items-center justify-center transition-colors before:absolute before:-inset-[5px] before:content-['']",
-                      active.includes(e.value)
-                        ? "bg-accent ring-1 ring-primary"
+                      "relative p-4 w-6 h-6 rounded-lg text-[24px] leading-none flex items-center justify-center transition-colors before:absolute before:-inset-[5px] before:content-['']",
+                      topPicks.includes(emoji)
+                        ? "bg-accent ring-1 ring-amber-400"
                         : "hover:bg-accent",
                     ].join(" ")}
-                    onClick={() => onToggle(e.value)}
-                    title={e.label}
+                    onClick={() => onToggleTopPick(emoji)}
+                    title={
+                      topPicks.includes(emoji)
+                        ? "Ta bort toppval"
+                        : "Markera som kolumnens toppval"
+                    }
                   >
-                    {e.value}
+                    <span data-top-pick={topPicks.includes(emoji) || undefined}>
+                      {emoji}
+                    </span>
                   </button>
                 ))}
               </div>
-              {active.length > 0 && (
-                <>
-                  <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-2.5 mb-2">
-                    Kolumnens toppval
-                  </p>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {active.map((emoji) => (
-                      <button
-                        key={emoji}
-                        className={[
-                          "relative w-6 h-6 rounded-md text-base flex items-center justify-center transition-colors before:absolute before:-inset-[5px] before:content-['']",
-                          topPicks.includes(emoji)
-                            ? "bg-accent ring-1 ring-amber-400"
-                            : "hover:bg-accent",
-                        ].join(" ")}
-                        onClick={() => onToggleTopPick(emoji)}
-                        title={
-                          topPicks.includes(emoji)
-                            ? "Ta bort toppval"
-                            : "Markera som kolumnens toppval"
-                        }
-                      >
-                        <span data-top-pick={topPicks.includes(emoji) || undefined}>
-                          {emoji}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        }
+            </>
+          )}
+        </div>
+      );
+    }
 
-        if (item.handicapPicker) {
-          const { active, onSet, onClear } = item.handicapPicker;
-          return (
-            <div key={i} className="px-3 pt-2.5 pb-1.5">
-              <div className="flex items-center justify-between mb-2">
-                <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                  Handicap
-                </p>
-                {active && (
+    if (item.handicapPicker) {
+      const { active, onSet, onClear } = item.handicapPicker;
+      return (
+        <div key={i} className="px-3 pt-2.5 pb-1.5">
+          <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Handicap
+          </p>
+          {(["above", "below"] as const).map((position) => (
+            <div
+              key={position}
+              className="flex items-center gap-1.5 mb-1.5 last:mb-0"
+            >
+              <span className="w-11 shrink-0 text-xs text-muted-foreground">
+                {HANDICAP_POSITION_LABELS[position]}
+              </span>
+              {HANDICAP_PRESETS.map((meters) => {
+                const isActive =
+                  active?.position === position && active.meters === meters;
+                return (
                   <button
-                    className="text-[11px] text-muted-foreground hover:text-destructive"
-                    onClick={() => {
-                      onClear();
-                      onClose();
-                    }}
+                    key={meters}
+                    className={[
+                      "h-8 px-1.5 rounded-md font-display text-sm font-bold tabular-nums",
+                      isActive
+                        ? "bg-(--tf-accent) text-white"
+                        : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    ].join(" ")}
+                    // Clicking the selected value again clears it.
+                    onClick={() =>
+                      isActive ? onClear() : onSet(meters, position)
+                    }
                   >
-                    Rensa
+                    {meters}
                   </button>
-                )}
-              </div>
-              {(["above", "below"] as const).map((position) => (
-                <div key={position} className="flex items-center gap-1.5 mb-1.5 last:mb-0">
-                  <span className="w-11 shrink-0 text-xs text-muted-foreground">
-                    {HANDICAP_POSITION_LABELS[position]}
-                  </span>
-                  {HANDICAP_PRESETS.map((meters) => {
-                    const isActive = active?.position === position && active.meters === meters;
-                    return (
-                      <button
-                        key={meters}
-                        className={[
-                          "h-6 px-1.5 rounded-md font-display text-[11px] font-bold tabular-nums transition-colors",
-                          isActive
-                            ? "bg-(--tf-accent) text-white"
-                            : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                        ].join(" ")}
-                        onClick={() => {
-                          onSet(meters, position);
-                          onClose();
-                        }}
-                      >
-                        {meters}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+                );
+              })}
             </div>
-          );
-        }
+          ))}
+        </div>
+      );
+    }
 
-        if (item.divider) {
-          return <Separator key={i} className="my-1.5 mx-2" />;
-        }
-
-        return (
-          <Button
-            key={i}
-            variant="ghost"
-            disabled={item.disabled}
+    if (item.toggle) {
+      const { label, checked, onToggle } = item.toggle;
+      return (
+        <button
+          key={i}
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          className="w-full h-10 sm:h-8 flex items-center justify-between gap-3 px-3 text-left hover:bg-accent"
+          onClick={onToggle}
+        >
+          <span>{label}</span>
+          <span
             className={[
-              "w-full h-10 sm:h-8 justify-start rounded-none px-4 font-normal",
-              item.danger
-                ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
-                : "",
+              "relative h-4.5 w-8 shrink-0 rounded-full",
+              checked ? "bg-(--tf-accent)" : "bg-muted-foreground/30",
             ].join(" ")}
-            onClick={() => {
-              if (!item.disabled) {
-                item.onClick?.();
-                onClose();
-              }
-            }}
           >
-            {item.label}
-          </Button>
-        );
-      });
+            <span
+              className={[
+                "absolute top-0.5 size-3.5 rounded-full bg-white shadow-sm",
+                checked ? "left-4" : "left-0.5",
+              ].join(" ")}
+            />
+          </span>
+        </button>
+      );
+    }
+
+    if (item.divider) {
+      return <Separator key={i} className="my-1.5 mx-2" />;
+    }
+
+    return (
+      <Button
+        key={i}
+        variant="ghost"
+        disabled={item.disabled}
+        className={[
+          "w-full h-10 sm:h-8 justify-start rounded-none px-4 font-normal",
+          item.danger
+            ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+            : "",
+        ].join(" ")}
+        onClick={() => {
+          // Deleting this cell's row/column closes the menu on its own (the
+          // parent clears ctxMenu); everything else keeps it open.
+          if (!item.disabled) item.onClick?.();
+        }}
+      >
+        {item.label}
+      </Button>
+    );
+  });
 
   if (isMobile) {
     return (
