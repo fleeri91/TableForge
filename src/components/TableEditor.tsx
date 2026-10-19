@@ -1043,7 +1043,7 @@ function ContextMenu({
     }
 
     if (item.divider) {
-      return <Separator key={i} className="my-1.5 mx-2" />;
+      return <Separator key={i} className="my-1.5 mx-2 data-horizontal:w-auto" />;
     }
 
     return (
@@ -1078,7 +1078,7 @@ function ContextMenu({
           onClick={onClose}
         />
         <div
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[80vh] flex-col rounded-t-2xl border-t-[3px] border-t-(--tf-accent) bg-popover text-popover-foreground shadow-2xl animate-in slide-in-from-bottom duration-200"
+          className="fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-2xl border-t-[3px] border-t-(--tf-accent) bg-popover text-popover-foreground shadow-2xl animate-in slide-in-from-bottom duration-200"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex justify-center pt-2" aria-hidden>
@@ -1096,7 +1096,7 @@ function ContextMenu({
               <X className="size-4" />
             </button>
           </div>
-          <div className="overflow-y-auto pb-[max(env(safe-area-inset-bottom),0.375rem)]">
+          <div className="pb-[max(env(safe-area-inset-bottom),0.375rem)]">
             {content}
           </div>
         </div>
