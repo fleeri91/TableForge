@@ -48,11 +48,11 @@ function loadRegistry(): SavedTable[] {
 function formatRelative(ts: number): string {
   const diff = Date.now() - ts;
   const min = 60_000, hr = 3_600_000, day = 86_400_000;
-  if (diff < min) return 'just now';
-  if (diff < hr) return `${Math.floor(diff / min)}m ago`;
-  if (diff < day) return `${Math.floor(diff / hr)}h ago`;
-  if (diff < day * 7) return `${Math.floor(diff / day)}d ago`;
-  return new Date(ts).toLocaleDateString();
+  if (diff < min) return 'nyss';
+  if (diff < hr) return `${Math.floor(diff / min)} min sedan`;
+  if (diff < day) return `${Math.floor(diff / hr)} tim sedan`;
+  if (diff < day * 7) return `${Math.floor(diff / day)} d sedan`;
+  return new Date(ts).toLocaleDateString('sv-SE');
 }
 
 export function App() {
@@ -123,7 +123,7 @@ export function App() {
   }
 
   function defaultName() {
-    return `${template.label} — ${new Date().toLocaleDateString()}`;
+    return `${template.label} — ${new Date().toLocaleDateString('sv-SE')}`;
   }
 
   // Update the already-loaded save in place — no naming step, since there's
@@ -134,9 +134,9 @@ export function App() {
     if (raw) {
       try {
         localStorage.setItem(activeSave.dataKey, raw);
-        flashFeedback(`"${activeSave.name}" updated`);
+        flashFeedback(`"${activeSave.name}" uppdaterad`);
       } catch {
-        flashFeedback('Update failed — storage full?');
+        flashFeedback('Uppdateringen misslyckades — är lagringen full?');
       }
     }
     setSavedTables(prev => prev.map(s =>
@@ -155,9 +155,9 @@ export function App() {
         // Seed the working copy too, so continued edits don't touch the
         // snapshot again until the next explicit Update.
         localStorage.setItem(draftKeyForSave(id), raw);
-        flashFeedback(`Saved as "${name}"`);
+        flashFeedback(`Sparad som "${name}"`);
       } catch {
-        flashFeedback('Save failed — storage full?');
+        flashFeedback('Det gick inte att spara — är lagringen full?');
       }
     }
     const entry: SavedTable = {
@@ -189,7 +189,7 @@ export function App() {
 
   function deleteSave(entry: SavedTable, e: React.MouseEvent) {
     e.stopPropagation();
-    if (!window.confirm(`Delete "${entry.name}"? This cannot be undone.`)) return;
+    if (!window.confirm(`Radera "${entry.name}"? Det går inte att ångra.`)) return;
     localStorage.removeItem(entry.dataKey);
     localStorage.removeItem(draftKeyForSave(entry.id));
     setSavedTables(prev => prev.filter(s => s.id !== entry.id));
@@ -223,7 +223,7 @@ export function App() {
 
           {/* Mobile-only theme toggle, kept beside the brand so it's always
               visible; the desktop instance further down covers `sm:` and up. */}
-          <Button variant="ghost" size="icon" className="size-9 sm:hidden" onClick={() => setIsDark(d => !d)} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+          <Button variant="ghost" size="icon" className="size-9 sm:hidden" onClick={() => setIsDark(d => !d)} title={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'} aria-label={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'}>
             {isDark ? <Sun /> : <Moon />}
           </Button>
         </div>
@@ -235,7 +235,7 @@ export function App() {
           {/* Template picker */}
           <div className="flex items-center gap-2 shrink-0">
             <span className="hidden sm:inline font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Template
+              Mall
             </span>
             <Select
               items={Object.fromEntries(TABLE_TEMPLATES.map(t => [t.id, t.label]))}
@@ -263,7 +263,7 @@ export function App() {
           {/* Save / Update */}
           <div className="relative shrink-0">
             {activeSave ? (
-              <Button variant="outline" size="icon" className="size-9 sm:size-8" onClick={updateCurrentSave} title={`Update "${activeSave.name}"`} aria-label={`Update "${activeSave.name}"`}>
+              <Button variant="outline" size="icon" className="size-9 sm:size-8" onClick={updateCurrentSave} title={`Uppdatera "${activeSave.name}"`} aria-label={`Uppdatera "${activeSave.name}"`}>
                 <Save />
               </Button>
             ) : (
@@ -274,12 +274,12 @@ export function App() {
                   if (o) { setSaveName(defaultName()); setLoadOpen(false); }
                 }}
               >
-                <PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8" title="Save table" aria-label="Save table" />}>
+                <PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8" title="Spara tabell" aria-label="Spara tabell" />}>
                   <Save />
                 </PopoverTrigger>
                 <PopoverContent align="start" className="w-64 max-w-[calc(100vw-1.5rem)]">
                   <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Save table as
+                    Spara tabell som
                   </p>
                   <Input
                     autoFocus
@@ -289,14 +289,14 @@ export function App() {
                       if (e.key === 'Enter') confirmSave();
                       if (e.key === 'Escape') setSaveOpen(false);
                     }}
-                    placeholder="Table name"
+                    placeholder="Tabellnamn"
                   />
                   <div className="flex justify-end gap-2">
                     <Button variant="ghost" size="sm" onClick={() => setSaveOpen(false)}>
-                      Cancel
+                      Avbryt
                     </Button>
                     <Button size="sm" onClick={confirmSave}>
-                      Save
+                      Spara
                     </Button>
                   </div>
                 </PopoverContent>
@@ -318,16 +318,16 @@ export function App() {
 
           {/* Load */}
           <Popover open={loadOpen} onOpenChange={o => { setLoadOpen(o); if (o) setSaveOpen(false); }}>
-            <PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" title="Load a saved table" aria-label={`Load a saved table${savedTables.length > 0 ? ` (${savedTables.length} saved)` : ''}`} />}>
+            <PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" title="Öppna en sparad tabell" aria-label={`Öppna en sparad tabell${savedTables.length > 0 ? ` (${savedTables.length} sparade)` : ''}`} />}>
               <FolderOpen />
             </PopoverTrigger>
             <PopoverContent data-scroll-hide align="start" className="w-72 max-w-[calc(100vw-1.5rem)] max-h-80 overflow-y-auto p-1.5 gap-0">
               <p className="font-display px-2 pt-1 pb-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Saved tables
+                Sparade tabeller
               </p>
               {savedTables.length === 0 ? (
                 <p className="px-2 py-3 text-xs text-muted-foreground">
-                  No saved tables yet. Use Save to create one.
+                  Inga sparade tabeller än. Använd Spara för att skapa en.
                 </p>
               ) : (
                 [...savedTables].sort((a, b) => b.savedAt - a.savedAt).map(entry => (
@@ -354,7 +354,7 @@ export function App() {
                       variant="ghost"
                       size="icon-sm"
                       onClick={e => deleteSave(entry, e)}
-                      title="Delete"
+                      title="Radera"
                     >
                       <Trash2 />
                     </Button>
@@ -365,12 +365,12 @@ export function App() {
           </Popover>
 
           {/* Export */}
-          <Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" onClick={exportPdf} title="Export the table as a PDF" aria-label="Export the table as a PDF">
+          <Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" onClick={exportPdf} title="Exportera tabellen som PDF" aria-label="Exportera tabellen som PDF">
             <FileText />
           </Button>
 
           <Badge variant="outline" className="hidden lg:inline-flex ml-1 text-muted-foreground font-normal shrink-0">
-            Tap a cell for options · Tap a header to rename
+            Tryck på en cell för alternativ · Tryck på en rubrik för att byta namn
           </Badge>
 
           {/* Reset button */}
@@ -382,15 +382,15 @@ export function App() {
               localStorage.removeItem(storageKey);
               setResetCount(c => c + 1);
             }}
-            title="Clear all data and reset table"
-            aria-label="Clear all data and reset table"
+            title="Rensa all data och återställ tabellen"
+            aria-label="Rensa all data och återställ tabellen"
           >
             <RotateCcw />
           </Button>
         </div>
 
         {/* Desktop-only theme toggle — mirrors its original end-of-toolbar position; the mobile instance lives in the brand row above. */}
-        <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => setIsDark(d => !d)} title={isDark ? 'Switch to light mode' : 'Switch to dark mode'} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+        <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => setIsDark(d => !d)} title={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'} aria-label={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'}>
           {isDark ? <Sun /> : <Moon />}
         </Button>
       </header>
@@ -422,7 +422,7 @@ function Brand({ large = false }: { large?: boolean }) {
           large ? "size-11 text-xl" : "size-7 text-sm",
         ].join(" ")}
       >
-        TF
+        TT
       </span>
       <span
         className={[
@@ -430,7 +430,7 @@ function Brand({ large = false }: { large?: boolean }) {
           large ? "text-4xl" : "text-xl",
         ].join(" ")}
       >
-        TableForge
+        Travtavlan
       </span>
     </div>
   );
@@ -452,7 +452,7 @@ function StartupScreen({
       </div>
       <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-          Choose a game to get started
+          Välj ett spel för att komma igång
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full max-w-md">
           {TABLE_TEMPLATES.map((t, i) => (
@@ -476,7 +476,7 @@ function StartupScreen({
         <div className="flex flex-col items-center gap-3 w-full max-w-md animate-in fade-in duration-500 delay-300 fill-mode-both">
           <div className="flex items-center gap-3 w-full">
             <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground font-medium shrink-0">or open a saved table</span>
+            <span className="text-xs text-muted-foreground font-medium shrink-0">eller öppna en sparad tabell</span>
             <Separator className="flex-1" />
           </div>
           <div data-scroll-hide className="flex flex-col gap-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-sm">

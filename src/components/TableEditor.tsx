@@ -97,6 +97,10 @@ interface MenuItem {
 }
 
 const HANDICAP_PRESETS = [20, 40, 60, 80];
+const HANDICAP_POSITION_LABELS: Record<HandicapPosition, string> = {
+  above: "Över",
+  below: "Under",
+};
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -581,7 +585,7 @@ export function TableEditor({
               onClick={() => addRow()}
             >
               <Plus className="size-2.5" />
-              Add row
+              Lägg till rad
             </Button>
           </div>
         )}
@@ -621,32 +625,32 @@ export function TableEditor({
             },
             {
               label: isCellDisabled(ctxMenu.rowId, ctxMenu.colId)
-                ? "Enable cell"
-                : "Disable cell",
+                ? "Aktivera cell"
+                : "Inaktivera cell",
               onClick: () => toggleCellDisabled(ctxMenu.rowId, ctxMenu.colId),
             },
             { divider: true },
             {
-              label: "Insert row above",
+              label: "Infoga rad ovanför",
               onClick: () =>
                 addRow(rows.findIndex((r) => r.id === ctxMenu.rowId) - 1),
               disabled: rows.length >= MAX_ROWS,
             },
             {
-              label: "Insert row below",
+              label: "Infoga rad nedanför",
               onClick: () =>
                 addRow(rows.findIndex((r) => r.id === ctxMenu.rowId)),
               disabled: rows.length >= MAX_ROWS,
             },
             {
-              label: "Delete row",
+              label: "Radera rad",
               onClick: () => deleteRow(ctxMenu.rowId),
               danger: true,
               disabled: rows.length <= 1,
             },
             { divider: true },
             {
-              label: "Delete column",
+              label: "Radera kolumn",
               onClick: () => deleteColumn(ctxMenu.colId),
               danger: true,
               disabled: columns.length <= 1,
@@ -820,7 +824,7 @@ function ContextMenu({
           return (
             <div key={i} className="px-3 pt-2.5 pb-1.5">
               <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                Cell color
+                Cellfärg
               </p>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {/* Clear */}
@@ -835,7 +839,7 @@ function ContextMenu({
                     onSelect(null);
                     onClose();
                   }}
-                  title="No color"
+                  title="Ingen färg"
                 >
                   <X className="size-2.5 text-muted-foreground" />
                 </button>
@@ -889,7 +893,7 @@ function ContextMenu({
               {active.length > 0 && (
                 <>
                   <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-2.5 mb-2">
-                    Column top pick
+                    Kolumnens toppval
                   </p>
                   <div className="flex items-center gap-1 flex-wrap">
                     {active.map((emoji) => (
@@ -904,8 +908,8 @@ function ContextMenu({
                         onClick={() => onToggleTopPick(emoji)}
                         title={
                           topPicks.includes(emoji)
-                            ? "Remove top pick"
-                            : "Mark as this column's top pick"
+                            ? "Ta bort toppval"
+                            : "Markera som kolumnens toppval"
                         }
                       >
                         <span data-top-pick={topPicks.includes(emoji) || undefined}>
@@ -936,14 +940,14 @@ function ContextMenu({
                       onClose();
                     }}
                   >
-                    Clear
+                    Rensa
                   </button>
                 )}
               </div>
               {(["above", "below"] as const).map((position) => (
                 <div key={position} className="flex items-center gap-1.5 mb-1.5 last:mb-0">
-                  <span className="w-11 shrink-0 text-xs text-muted-foreground capitalize">
-                    {position}
+                  <span className="w-11 shrink-0 text-xs text-muted-foreground">
+                    {HANDICAP_POSITION_LABELS[position]}
                   </span>
                   {HANDICAP_PRESETS.map((meters) => {
                     const isActive = active?.position === position && active.meters === meters;
@@ -1016,12 +1020,12 @@ function ContextMenu({
           </div>
           <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
             <span className="font-display text-base font-bold tracking-tight text-foreground">
-              Cell options
+              Cellalternativ
             </span>
             <button
               onClick={onClose}
               className="-mr-1.5 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              aria-label="Close"
+              aria-label="Stäng"
             >
               <X className="size-4" />
             </button>
