@@ -65,9 +65,17 @@ function withTopPick(
   return next;
 }
 
+// The triggering cell's viewport rect — the menu opens beside it and flips
+// to the opposite side when it would overflow the viewport.
+interface MenuAnchor {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 interface ContextMenuState {
-  x: number;
-  y: number;
+  anchor: MenuAnchor;
   rowId: string;
   colId: string;
 }
@@ -422,7 +430,8 @@ export function TableEditor({
     (e: React.MouseEvent, rowId: string, colId: string) => {
       e.preventDefault();
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      setCtxMenu({ x: rect.right + 4, y: rect.top, rowId, colId });
+      const { left, right, top, bottom } = rect;
+      setCtxMenu({ anchor: { left, right, top, bottom }, rowId, colId });
     },
     [],
   );
@@ -607,8 +616,7 @@ export function TableEditor({
       {/* ── Context Menu ── */}
       {ctxMenu && (
         <ContextMenu
-          x={ctxMenu.x}
-          y={ctxMenu.y}
+          anchor={ctxMenu.anchor}
           onClose={() => setCtxMenu(null)}
           items={[
             {
@@ -784,30 +792,31 @@ const TableCell = memo(function TableCell({
 });
 
 function ContextMenu({
-  x,
-  y,
+  anchor,
   onClose,
   items,
 }: {
-  x: number;
-  y: number;
+  anchor: MenuAnchor;
   onClose: () => void;
   items: MenuItem[];
 }) {
   const isMobile = useIsMobile();
 
-  // Anchored at (x, y) from the triggering element, but on a narrow phone
+  // Anchored beside the triggering element, but on a narrow phone
   // viewport that point is often near the screen edge — and a small popup
   // tacked onto the edge of a cell is awkward to hit with a thumb regardless.
   // Below the `sm` breakpoint the menu renders as a full-width bottom sheet
-  // instead (see the `isMobile` branch below), so this clamping — and (x, y)
-  // entirely — only matters for the desktop popup.
+  // instead (see the `isMobile` branch below), so this positioning — and the
+  // anchor entirely — only matters for the desktop popup.
   //
   // A callback ref (runs synchronously right after the node mounts, before
-  // paint) measures the menu's actual size and nudges it back on-screen via
-  // direct style mutation — no extra render needed. Re-fires whenever (x, y)
-  // changes because it's memoized on them, so re-opening at a new spot
-  // re-clamps.
+  // paint) measures the menu's actual size and positions it via direct style
+  // mutation — no extra render needed. By default it opens to the right of
+  // the cell, top-aligned; if that overflows the viewport it flips to the
+  // left of the cell / bottom-aligned with it, and only clamps to the edge
+  // as a last resort when neither side fits. Re-fires whenever the anchor
+  // changes because it's memoized on it, so re-opening at a new spot
+  // re-positions.
   const clampToViewport = useCallback(
     (el: HTMLDivElement | null) => {
       if (!el || isMobile) return;
@@ -816,18 +825,28 @@ function ContextMenu({
       // does replay ref callbacks against an already-mutated node, and
       // measuring from that mutated position instead of the original anchor
       // would compound the offset on every replay.
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
+      const gap = 4;
       const margin = 8;
-      const rect = el.getBoundingClientRect();
-      if (rect.right > window.innerWidth - margin) {
-        el.style.left = `${Math.max(margin, x - (rect.right - window.innerWidth) - margin)}px`;
+      el.style.left = `${anchor.right + gap}px`;
+      el.style.top = `${anchor.top}px`;
+      const { width, height } = el.getBoundingClientRect();
+      const maxLeft = window.innerWidth - margin - width;
+      const maxTop = window.innerHeight - margin - height;
+
+      let left = anchor.right + gap;
+      if (left > maxLeft) {
+        const flipped = anchor.left - gap - width;
+        left = flipped >= margin ? flipped : Math.max(margin, maxLeft);
       }
-      if (rect.bottom > window.innerHeight - margin) {
-        el.style.top = `${Math.max(margin, y - (rect.bottom - window.innerHeight) - margin)}px`;
+      let top = anchor.top;
+      if (top > maxTop) {
+        const flipped = anchor.bottom - height;
+        top = flipped >= margin ? flipped : Math.max(margin, maxTop);
       }
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
     },
-    [x, y, isMobile],
+    [anchor.left, anchor.right, anchor.top, anchor.bottom, isMobile],
   );
 
   // Locks background scroll while the mobile sheet is open, like a modal —
@@ -847,7 +866,7 @@ function ContextMenu({
       const { active, onSelect } = item.colorPicker;
       return (
         <div key={i} className="px-3 pt-2.5 pb-1.5">
-          <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Cellfärg
           </p>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -888,7 +907,7 @@ function ContextMenu({
       const { active, onToggle, topPicks, onToggleTopPick } = item.emojiPicker;
       return (
         <div key={i} className="px-3 pt-2 pb-2.5">
-          <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Emojis
           </p>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -910,7 +929,7 @@ function ContextMenu({
           </div>
           {active.length > 0 && (
             <>
-              <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-2.5 mb-2">
+              <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-2.5 mb-2">
                 Kolumnens toppval
               </p>
               <div className="flex items-center gap-1.5 flex-wrap">
@@ -946,7 +965,7 @@ function ContextMenu({
       const { active, onSet, onClear } = item.handicapPicker;
       return (
         <div key={i} className="px-3 pt-2.5 pb-1.5">
-          <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Handicap
           </p>
           {(["above", "below"] as const).map((position) => (
@@ -1079,7 +1098,7 @@ function ContextMenu({
     <div
       ref={clampToViewport}
       className="fixed z-50 bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border border-t-[3px] border-t-(--tf-accent) ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
-      style={{ left: x, top: y }}
+      style={{ left: anchor.right + 4, top: anchor.top }}
       onClick={(e) => e.stopPropagation()}
     >
       {content}
