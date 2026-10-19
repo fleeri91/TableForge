@@ -866,6 +866,9 @@ function ContextMenu({
         }
 
         if (item.emojiPicker) {
+          // Each button's ::before pads its hit area by 5px, so the whole row
+          // (and a margin around it) is tappable without enlarging the visible
+          // buttons. Neighbors' pads overlap in the 6px gap; the later one wins.
           const { active, onToggle, topPicks, onToggleTopPick } =
             item.emojiPicker;
           return (
@@ -873,12 +876,12 @@ function ContextMenu({
               <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
                 Emojis
               </p>
-              <div className="grid grid-cols-5 gap-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {CELL_EMOJIS.map((e) => (
                   <button
                     key={e.value}
                     className={[
-                      "w-8 h-8 rounded-lg text-base flex items-center justify-center transition-colors",
+                      "relative w-6 h-6 rounded-md text-base flex items-center justify-center transition-colors before:absolute before:-inset-[5px] before:content-['']",
                       active.includes(e.value)
                         ? "bg-accent ring-1 ring-primary"
                         : "hover:bg-accent",
@@ -895,12 +898,12 @@ function ContextMenu({
                   <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mt-2.5 mb-2">
                     Kolumnens toppval
                   </p>
-                  <div className="flex items-center gap-1 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     {active.map((emoji) => (
                       <button
                         key={emoji}
                         className={[
-                          "w-8 h-8 rounded-lg text-base flex items-center justify-center transition-colors",
+                          "relative w-6 h-6 rounded-md text-base flex items-center justify-center transition-colors before:absolute before:-inset-[5px] before:content-['']",
                           topPicks.includes(emoji)
                             ? "bg-accent ring-1 ring-amber-400"
                             : "hover:bg-accent",
