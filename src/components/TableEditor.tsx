@@ -812,9 +812,10 @@ function ContextMenu({
   // A callback ref (runs synchronously right after the node mounts, before
   // paint) measures the menu's actual size and positions it via direct style
   // mutation — no extra render needed. By default it opens to the right of
-  // the cell, top-aligned; if that overflows the viewport it flips to the
-  // left of the cell / bottom-aligned with it, and only clamps to the edge
-  // as a last resort when neither side fits. Re-fires whenever the anchor
+  // the cell, top-aligned. If that overflows the viewport horizontally it
+  // drops below the cell instead (left-aligned with it, or right-aligned if
+  // that still overflows), and goes above the cell if there's no room below.
+  // Clamping to the edge is the last resort. Re-fires whenever the anchor
   // changes because it's memoized on it, so re-opening at a new spot
   // re-positions.
   const clampToViewport = useCallback(
@@ -833,15 +834,24 @@ function ContextMenu({
       const maxLeft = window.innerWidth - margin - width;
       const maxTop = window.innerHeight - margin - height;
 
+      const clamp = (v: number, max: number) =>
+        Math.min(Math.max(v, margin), Math.max(margin, max));
+
       let left = anchor.right + gap;
-      if (left > maxLeft) {
-        const flipped = anchor.left - gap - width;
-        left = flipped >= margin ? flipped : Math.max(margin, maxLeft);
-      }
       let top = anchor.top;
-      if (top > maxTop) {
+      if (left > maxLeft || left < margin) {
+        // Beside the cell doesn't fit — place it below (or above) instead.
+        left = anchor.left;
+        if (left > maxLeft) left = anchor.right - width;
+        left = clamp(left, maxLeft);
+        top = anchor.bottom + gap;
+        if (top > maxTop) {
+          const above = anchor.top - gap - height;
+          top = above >= margin ? above : clamp(top, maxTop);
+        }
+      } else if (top > maxTop) {
         const flipped = anchor.bottom - height;
-        top = flipped >= margin ? flipped : Math.max(margin, maxTop);
+        top = flipped >= margin ? flipped : clamp(top, maxTop);
       }
       el.style.left = `${left}px`;
       el.style.top = `${top}px`;
