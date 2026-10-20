@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Check } from 'lucide-react';
+import { Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Check, Link } from 'lucide-react';
 import { TableEditor } from './components/TableEditor';
 import { TABLE_TEMPLATES, type TableTemplate } from './config/templates';
 import { getGameTypeColor } from './config/gameTypes';
+import { decodeShare, encodeShare, readShareToken, shareUrl } from './lib/share';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -27,9 +28,14 @@ interface SavedTable {
 
 type ActiveSlot =
   | { kind: 'draft'; templateId: string | null }
-  | { kind: 'save'; saveId: string };
+  | { kind: 'save'; saveId: string }
+  | { kind: 'shared' };
 
 const REGISTRY_KEY = 'tableforge:registry';
+// Working copy for a table opened from a share link. The link itself stays
+// the source of truth (TableEditor is seeded from it, not from this key), so
+// this only matters for Save — which copies it into a regular save.
+const SHARED_KEY = 'tableforge:shared';
 
 function uid() { return crypto.randomUUID(); }
 
@@ -69,6 +75,41 @@ export function App() {
   const [feedback, setFeedback] = useState<{ text: string; visible: boolean } | null>(null);
   const feedbackTimers = useRef<{ hide?: number; clear?: number }>({});
   const [started, setStarted] = useState(false);
+  const [sharedSnapshot, setSharedSnapshot] = useState<Record<string, unknown> | null>(null);
+  const [sharePending, setSharePending] = useState(() => readShareToken() !== null);
+  const [shareError, setShareError] = useState(false);
+  const snapshotRef = useRef<Record<string, unknown> | null>(null);
+
+  // Open a shared table from the URL fragment — on first load, and again if
+  // another share link is pasted into the same tab (only the hash changes,
+  // so the page doesn't reload).
+  useEffect(() => {
+    let cancelled = false;
+    function openFromHash() {
+      const token = readShareToken();
+      if (!token) return;
+      setSharePending(true);
+      decodeShare(token)
+        .then(({ templateId, snapshot }) => {
+          if (cancelled) return;
+          const t = TABLE_TEMPLATES.find(t => t.id === templateId) ?? TABLE_TEMPLATES[0];
+          setActiveTemplate(t);
+          setActiveSlot({ kind: 'shared' });
+          setSharedSnapshot(snapshot);
+          setShareError(false);
+          setStarted(true);
+          setResetCount(c => c + 1); // remount even if a shared table is already open
+        })
+        .catch(() => { if (!cancelled) setShareError(true); })
+        .finally(() => { if (!cancelled) setSharePending(false); });
+    }
+    openFromHash();
+    window.addEventListener('hashchange', openFromHash);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('hashchange', openFromHash);
+    };
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark);
@@ -86,13 +127,18 @@ export function App() {
     catch { /* storage full or unavailable */ }
   }, [savedTables]);
 
+  // Avoids flashing the startup screen while a share link decodes.
+  if (sharePending) return null;
+
   // Every table belongs to a game type, so the very first thing a session
   // does is pick one — there's no "blank" table anymore.
   if (!started || !activeTemplate) {
     return (
       <StartupScreen
         savedTables={savedTables}
+        shareError={shareError}
         onChoose={t => {
+          clearShareHash();
           setActiveTemplate(t);
           setActiveSlot({ kind: 'draft', templateId: t.id });
           setStarted(true);
@@ -110,7 +156,33 @@ export function App() {
     ? savedTables.find(s => s.id === activeSlot.saveId) ?? null
     : null;
   const draftKey = `tableforge-${template.id}`;
-  const storageKey = activeSave ? draftKeyForSave(activeSave.id) : draftKey;
+  const storageKey = activeSave
+    ? draftKeyForSave(activeSave.id)
+    : activeSlot.kind === 'shared' ? SHARED_KEY : draftKey;
+
+  // Leaving a shared table drops its link from the address bar, so a reload
+  // doesn't pull it back up over whatever was opened instead.
+  function clearShareHash() {
+    if (readShareToken() !== null)
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+
+  async function shareTable() {
+    if (!snapshotRef.current) return;
+    try {
+      const url = shareUrl(await encodeShare(template.id, snapshotRef.current));
+      // Touch devices get the native share sheet; elsewhere, the clipboard.
+      if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
+        try { await navigator.share({ title: template.label, url }); }
+        catch (e) { if ((e as DOMException).name !== 'AbortError') throw e; }
+        return;
+      }
+      await navigator.clipboard.writeText(url);
+      flashFeedback('Länken kopierad');
+    } catch {
+      flashFeedback('Det gick inte att skapa en delningslänk');
+    }
+  }
 
   function flashFeedback(text: string) {
     if (feedbackTimers.current.hide) window.clearTimeout(feedbackTimers.current.hide);
@@ -164,6 +236,7 @@ export function App() {
       id, name, templateId: template.id, dataKey, savedAt: Date.now(),
     };
     setSavedTables(prev => [entry, ...prev]);
+    clearShareHash();
     setActiveSlot({ kind: 'save', saveId: id });
     setSaveOpen(false);
   }
@@ -180,6 +253,7 @@ export function App() {
     // Falls back to the first template for saves made before "Blank" was
     // removed (they may carry a null templateId).
     const t = TABLE_TEMPLATES.find(t => t.id === entry.templateId) ?? TABLE_TEMPLATES[0];
+    clearShareHash();
     setActiveTemplate(t);
     setActiveSlot({ kind: 'save', saveId: entry.id });
     setLoadOpen(false);
@@ -243,6 +317,7 @@ export function App() {
               onValueChange={v => {
                 const t = TABLE_TEMPLATES.find(t => t.id === v);
                 if (!t) return;
+                clearShareHash();
                 setActiveTemplate(t);
                 setActiveSlot({ kind: 'draft', templateId: t.id });
               }}
@@ -364,6 +439,11 @@ export function App() {
             </PopoverContent>
           </Popover>
 
+          {/* Share */}
+          <Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" onClick={shareTable} title="Kopiera en delningslänk till tabellen" aria-label="Kopiera en delningslänk till tabellen">
+            <Link />
+          </Button>
+
           {/* Export */}
           <Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" onClick={exportPdf} title="Exportera tabellen som PDF" aria-label="Exportera tabellen som PDF">
             <FileText />
@@ -401,6 +481,8 @@ export function App() {
           key={`${storageKey}-${resetCount}`}
           template={template}
           storageKey={storageKey}
+          initialSnapshot={activeSlot.kind === 'shared' ? sharedSnapshot : null}
+          snapshotRef={snapshotRef}
           accentColor={getGameTypeColor(template.id)}
           accentSoft={getGameTypeColor(template.id, 3)}
           accentBorder={getGameTypeColor(template.id, 7)}
@@ -437,9 +519,10 @@ function Brand({ large = false }: { large?: boolean }) {
 }
 
 function StartupScreen({
-  savedTables, onChoose, onOpenSave,
+  savedTables, shareError, onChoose, onOpenSave,
 }: {
   savedTables: SavedTable[];
+  shareError: boolean;
   onChoose: (template: TableTemplate) => void;
   onOpenSave: (entry: SavedTable) => void;
 }) {
@@ -450,6 +533,11 @@ function StartupScreen({
       <div className="animate-in fade-in slide-in-from-top-3 duration-500">
         <Brand large />
       </div>
+      {shareError && (
+        <p role="alert" className="text-sm text-destructive text-center max-w-md">
+          Delningslänken kunde inte öppnas — den kan vara ofullständig eller trasig.
+        </p>
+      )}
       <div className="flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
           Välj ett spel för att komma igång

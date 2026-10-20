@@ -188,19 +188,27 @@ function loadSaved(key: string) {
 export function TableEditor({
   template,
   storageKey,
+  initialSnapshot,
+  snapshotRef,
   accentColor = "var(--gray-9)",
   accentSoft = "var(--gray-3)",
   accentBorder = "var(--gray-7)",
 }: {
   template: TableTemplate;
   storageKey: string;
+  // Starting state that takes precedence over localStorage — used to open a
+  // shared link, which must work even where storage is unavailable.
+  initialSnapshot?: Record<string, unknown> | null;
+  // Mirrors the live snapshot out to the parent (e.g. for building a share
+  // link) without waiting on the debounced localStorage write.
+  snapshotRef?: React.RefObject<Record<string, unknown> | null>;
   accentColor?: string;
   accentSoft?: string;
   accentBorder?: string;
 }) {
   // Parsed once per mount and reused by every initializer below, instead of
   // re-parsing the same localStorage string once per field.
-  const [saved] = useState(() => loadSaved(storageKey));
+  const [saved] = useState(() => initialSnapshot ?? loadSaved(storageKey));
 
   const [columns, setColumns] = useState<Column[]>(() => {
     if (
@@ -260,6 +268,7 @@ export function TableEditor({
     cellHandicaps,
     columnTopPicks,
   };
+  if (snapshotRef) snapshotRef.current = latestSnapshotRef.current;
 
   const persist = useCallback(() => {
     try {
