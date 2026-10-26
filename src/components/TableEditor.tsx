@@ -847,33 +847,31 @@ const TableCell = memo(function TableCell({
         </div>
       )}
 
-      {/* Elite driver star and form trend — right edge, above the emojis */}
-      {!isDisabled && (isElite || trend) && (
-        <div className="absolute inset-y-0 right-1.5 flex items-center gap-1 pointer-events-none z-10">
-          {isElite && (
-            <span
-              className="flex size-5 items-center justify-center rounded-full bg-amber-400 text-white ring-[1.5px] ring-white shadow-sm"
-              title="Stjärnkusk"
-            >
-              <Star className="size-3 fill-current" strokeWidth={2.5} />
-            </span>
-          )}
-          {trend && (
-            <span
-              className={[
-                "flex size-5 items-center justify-center rounded-full text-white ring-[1.5px] ring-white shadow-sm",
-                trend === "up" ? "bg-emerald-600" : "bg-red-600",
-              ].join(" ")}
-              title={trend === "up" ? "Trend uppåt" : "Trend nedåt"}
-            >
-              {trend === "up" ? (
-                <TrendingUp className="size-3.5" strokeWidth={2.75} />
-              ) : (
-                <TrendingDown className="size-3.5" strokeWidth={2.75} />
-              )}
-            </span>
-          )}
-        </div>
+      {/* Elite driver and form trend — corner flags that take no space
+          from the cell's contents. The elite flag folds into the top-left
+          corner; the trend flag sits top-right for up, bottom-right for
+          down, so its position alone reads as the direction. */}
+      {!isDisabled && isElite && (
+        <span
+          className="absolute top-0 left-0 size-4 bg-amber-400 pointer-events-none [clip-path:polygon(0_0,100%_0,0_100%)]"
+          title="Stjärnkusk"
+        >
+          <Star
+            className="absolute top-px left-px size-2 text-white fill-current"
+            strokeWidth={0}
+          />
+        </span>
+      )}
+      {!isDisabled && trend && (
+        <span
+          className={[
+            "absolute right-0 size-3 pointer-events-none",
+            trend === "up"
+              ? "top-0 bg-emerald-600 [clip-path:polygon(0_0,100%_0,100%_100%)]"
+              : "bottom-0 bg-red-600 [clip-path:polygon(100%_0,100%_100%,0_100%)]",
+          ].join(" ")}
+          title={trend === "up" ? "Trend uppåt" : "Trend nedåt"}
+        />
       )}
 
       {/* Handicap badge — straddles the cell's top or bottom edge */}
