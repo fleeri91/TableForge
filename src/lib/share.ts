@@ -31,6 +31,10 @@ interface WireTable {
   h?: Record<string, [number, 0 | 1]>;
   // Top picks: column index → emoji → row index
   p?: Record<string, Record<string, number>>;
+  // Trends: 1 = up, 0 = down
+  u?: Record<string, 0 | 1>;
+  // Elite driver cells
+  s?: string[];
 }
 
 export interface SharedTable {
@@ -69,6 +73,8 @@ type Snapshot = {
   cellDisabled?: Record<string, boolean>;
   cellHandicaps?: Record<string, { meters: number; position: "above" | "below" }>;
   columnTopPicks?: Record<string, Record<string, string>>;
+  cellTrends?: Record<string, "up" | "down">;
+  cellElite?: Record<string, boolean>;
 };
 
 function toWire(templateId: string, snap: Snapshot): WireTable {
@@ -92,10 +98,13 @@ function toWire(templateId: string, snap: Snapshot): WireTable {
     return Object.keys(out).length > 0 ? out : undefined;
   }
 
-  const disabled = Object.entries(snap.cellDisabled ?? {})
-    .filter(([, on]) => on)
-    .map(([k]) => key(k))
-    .filter((k): k is string => k !== null);
+  const flagged = (rec: Record<string, boolean> | undefined) => {
+    const out = Object.entries(rec ?? {})
+      .filter(([, on]) => on)
+      .map(([k]) => key(k))
+      .filter((k): k is string => k !== null);
+    return out.length > 0 ? out : undefined;
+  };
 
   const picks: Record<string, Record<string, number>> = {};
   for (const [cId, byEmoji] of Object.entries(snap.columnTopPicks ?? {})) {
@@ -117,9 +126,11 @@ function toWire(templateId: string, snap: Snapshot): WireTable {
       return i >= 0 ? i : v;
     }),
     e: remap(snap.cellEmojis, (v) => v),
-    d: disabled.length > 0 ? disabled : undefined,
+    d: flagged(snap.cellDisabled),
     h: remap(snap.cellHandicaps, (v) => [v.meters, v.position === "below" ? 1 : 0]),
     p: Object.keys(picks).length > 0 ? picks : undefined,
+    u: remap(snap.cellTrends, (v) => (v === "up" ? 1 : 0)),
+    s: flagged(snap.cellElite),
   };
 }
 
@@ -146,11 +157,14 @@ function fromWire(w: WireTable): SharedTable {
     return out;
   }
 
-  const cellDisabled: Record<string, boolean> = {};
-  for (const k of w.d ?? []) {
-    const nk = key(k);
-    if (nk) cellDisabled[nk] = true;
-  }
+  const flags = (list: string[] | undefined) => {
+    const out: Record<string, boolean> = {};
+    for (const k of list ?? []) {
+      const nk = key(k);
+      if (nk) out[nk] = true;
+    }
+    return out;
+  };
 
   const columnTopPicks: Record<string, Record<string, string>> = {};
   for (const [ci, byEmoji] of Object.entries(w.p ?? {})) {
@@ -171,11 +185,13 @@ function fromWire(w: WireTable): SharedTable {
         typeof v === "number" ? CELL_COLORS[v]?.value ?? "" : v,
       ),
       cellEmojis: remap(w.e, (v) => v),
-      cellDisabled,
+      cellDisabled: flags(w.d),
       cellHandicaps: remap(w.h, ([meters, pos]) => ({
         meters, position: pos === 1 ? "below" : "above",
       })),
       columnTopPicks,
+      cellTrends: remap(w.u, (v) => (v === 1 ? "up" : "down")),
+      cellElite: flags(w.s),
     },
   };
 }
