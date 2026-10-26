@@ -1214,11 +1214,14 @@ function ContextMenu({
           className="fixed inset-0 z-50 bg-black/50 animate-in fade-in duration-150"
           onClick={onClose}
         />
+        {/* Capped below the full viewport height so the header (with its
+            close button) and a strip of backdrop always stay on screen; the
+            options scroll inside the sheet instead of pushing it off the top. */}
         <div
-          className="fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden rounded-t-2xl border-t-[3px] border-t-(--tf-accent) bg-popover text-popover-foreground shadow-2xl animate-in slide-in-from-bottom duration-200"
+          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t-[3px] border-t-(--tf-accent) bg-popover text-popover-foreground shadow-2xl animate-in slide-in-from-bottom duration-200"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex justify-center pt-2" aria-hidden>
+          <div className="flex shrink-0 justify-center pt-2" aria-hidden>
             <span className="h-1 w-9 rounded-full bg-border" />
           </div>
           <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
@@ -1233,7 +1236,7 @@ function ContextMenu({
               <X className="size-4" />
             </button>
           </div>
-          <div className="pb-[max(env(safe-area-inset-bottom),0.375rem)]">
+          <div className="min-h-0 overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom),0.375rem)]">
             {content}
           </div>
         </div>
@@ -1244,7 +1247,7 @@ function ContextMenu({
   return (
     <div
       ref={clampToViewport}
-      className="fixed z-50 bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border border-t-[3px] border-t-(--tf-accent) ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
+      className="fixed z-50 max-h-[calc(100dvh-16px)] overflow-y-auto overscroll-contain bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border border-t-[3px] border-t-(--tf-accent) ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
       style={{ left: anchor.right + 4, top: anchor.top }}
       onClick={(e) => e.stopPropagation()}
     >
