@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, Star, TrendingDown, TrendingUp, X } from "lucide-react";
 import { CELL_COLORS, migrateCellColors } from "../config/cellColors";
 import { CELL_EMOJIS } from "../config/cellEmojis";
 import type { TableTemplate } from "../config/templates";
@@ -12,6 +12,8 @@ import { Separator } from "@/components/ui/separator";
 type Distance = "S" | "M" | "L" | "ST";
 type StartMethod = "A" | "V";
 type HandicapPosition = "above" | "below";
+// Whether a start's form is trending up or down.
+type Trend = "up" | "down";
 
 interface Handicap {
   meters: number;
@@ -102,6 +104,10 @@ interface MenuItem {
     onSet: (meters: number, position: HandicapPosition) => void;
     onClear: () => void;
   };
+  trendPicker?: {
+    active: Trend | null;
+    onSelect: (trend: Trend | null) => void;
+  };
   // A labeled on/off switch row, styled like the picker sections above it.
   toggle?: {
     label: string;
@@ -115,6 +121,10 @@ const HANDICAP_POSITION_LABELS: Record<HandicapPosition, string> = {
   above: "Över",
   below: "Under",
 };
+const TRENDS: { value: Trend; label: string }[] = [
+  { value: "up", label: "Uppåt" },
+  { value: "down", label: "Nedåt" },
+];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -250,6 +260,13 @@ export function TableEditor({
   const [columnTopPicks, setColumnTopPicks] = useState<ColumnTopPicks>(() =>
     loadTopPicks(saved?.columnTopPicks),
   );
+  const [cellTrends, setCellTrends] = useState<Record<string, Trend>>(
+    () => (saved?.cellTrends as Record<string, Trend>) ?? {},
+  );
+  // Cells whose start has an elite (star) driver.
+  const [cellElite, setCellElite] = useState<Record<string, boolean>>(
+    () => (saved?.cellElite as Record<string, boolean>) ?? {},
+  );
 
   // ── Persist to localStorage ────────────────────────────────────────────────
   // Debounced: typing fires many state updates in
@@ -267,6 +284,8 @@ export function TableEditor({
     cellDisabled,
     cellHandicaps,
     columnTopPicks,
+    cellTrends,
+    cellElite,
   };
   if (snapshotRef) snapshotRef.current = latestSnapshotRef.current;
 
@@ -293,6 +312,8 @@ export function TableEditor({
     cellDisabled,
     cellHandicaps,
     columnTopPicks,
+    cellTrends,
+    cellElite,
   ]);
 
   useEffect(() => () => persist(), [persist]);
@@ -380,6 +401,31 @@ export function TableEditor({
       if (!(k in prev)) return prev;
       const { [k]: _, ...rest } = prev;
       return rest;
+    });
+
+  const getCellTrend = (rId: string, cId: string) =>
+    cellTrends[cellKey(rId, cId)] ?? null;
+  const setCellTrend = (rId: string, cId: string, trend: Trend | null) =>
+    setCellTrends((prev) => {
+      const k = cellKey(rId, cId);
+      if (trend === null) {
+        if (!(k in prev)) return prev;
+        const { [k]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [k]: trend };
+    });
+
+  const isCellElite = (rId: string, cId: string) =>
+    cellElite[cellKey(rId, cId)] ?? false;
+  const toggleCellElite = (rId: string, cId: string) =>
+    setCellElite((prev) => {
+      const k = cellKey(rId, cId);
+      if (prev[k]) {
+        const { [k]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [k]: true };
     });
 
   // ── Column operations ─────────────────────────────────────────────────────
@@ -596,6 +642,8 @@ export function TableEditor({
                 emojis={getCellEmojis(row.id, col.id)}
                 topPicks={getCellTopPicks(row.id, col.id)}
                 handicap={getCellHandicap(row.id, col.id)}
+                trend={getCellTrend(row.id, col.id)}
+                isElite={isCellElite(row.id, col.id)}
                 onOpenMenu={openCtxMenu}
               />
             ))}
@@ -658,7 +706,21 @@ export function TableEditor({
                 onClear: () => clearCellHandicap(ctxMenu.rowId, ctxMenu.colId),
               },
             },
+            {
+              trendPicker: {
+                active: getCellTrend(ctxMenu.rowId, ctxMenu.colId),
+                onSelect: (trend) =>
+                  setCellTrend(ctxMenu.rowId, ctxMenu.colId, trend),
+              },
+            },
             { divider: true },
+            {
+              toggle: {
+                label: "Stjärnkusk",
+                checked: isCellElite(ctxMenu.rowId, ctxMenu.colId),
+                onToggle: () => toggleCellElite(ctxMenu.rowId, ctxMenu.colId),
+              },
+            },
             {
               toggle: {
                 label: "Inaktivera cell",
@@ -714,6 +776,8 @@ interface TableCellProps {
   emojis: string[];
   topPicks: string[];
   handicap: Handicap | null;
+  trend: Trend | null;
+  isElite: boolean;
   onOpenMenu: (e: React.MouseEvent, rowId: string, colId: string) => void;
 }
 
@@ -735,6 +799,8 @@ const TableCell = memo(function TableCell({
   emojis,
   topPicks,
   handicap,
+  trend,
+  isElite,
   onOpenMenu,
 }: TableCellProps) {
   return (
@@ -778,6 +844,35 @@ const TableCell = memo(function TableCell({
               <span data-emoji-glyph>{e}</span>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Elite driver star and form trend — right edge, above the emojis */}
+      {!isDisabled && (isElite || trend) && (
+        <div className="absolute inset-y-0 right-1.5 flex items-center gap-1 pointer-events-none z-10">
+          {isElite && (
+            <span
+              className="flex size-5 items-center justify-center rounded-full bg-amber-400 text-white ring-[1.5px] ring-white shadow-sm"
+              title="Stjärnkusk"
+            >
+              <Star className="size-3 fill-current" strokeWidth={2.5} />
+            </span>
+          )}
+          {trend && (
+            <span
+              className={[
+                "flex size-5 items-center justify-center rounded-full text-white ring-[1.5px] ring-white shadow-sm",
+                trend === "up" ? "bg-emerald-600" : "bg-red-600",
+              ].join(" ")}
+              title={trend === "up" ? "Trend uppåt" : "Trend nedåt"}
+            >
+              {trend === "up" ? (
+                <TrendingUp className="size-3.5" strokeWidth={2.75} />
+              ) : (
+                <TrendingDown className="size-3.5" strokeWidth={2.75} />
+              )}
+            </span>
+          )}
         </div>
       )}
 
@@ -1018,6 +1113,41 @@ function ContextMenu({
               })}
             </div>
           ))}
+        </div>
+      );
+    }
+
+    if (item.trendPicker) {
+      const { active, onSelect } = item.trendPicker;
+      return (
+        <div key={i} className="px-3 pt-2.5 pb-1.5">
+          <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Trend
+          </p>
+          <div className="flex items-center gap-1.5">
+            {TRENDS.map(({ value, label }) => {
+              const isActive = active === value;
+              const Icon = value === "up" ? TrendingUp : TrendingDown;
+              return (
+                <button
+                  key={value}
+                  className={[
+                    "h-8 px-2 rounded-md flex items-center gap-1.5 font-display text-sm font-bold",
+                    isActive
+                      ? value === "up"
+                        ? "bg-emerald-600 text-white"
+                        : "bg-red-600 text-white"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  ].join(" ")}
+                  // Clicking the selected trend again clears it.
+                  onClick={() => onSelect(isActive ? null : value)}
+                >
+                  <Icon className="size-4" strokeWidth={2.5} />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       );
     }
