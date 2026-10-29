@@ -35,6 +35,8 @@ interface WireTable {
   u?: Record<string, 0 | 1>;
   // Elite driver cells
   s?: string[];
+  // Elite trainer cells
+  a?: string[];
 }
 
 export interface SharedTable {
@@ -75,6 +77,7 @@ type Snapshot = {
   columnTopPicks?: Record<string, Record<string, string>>;
   cellTrends?: Record<string, "up" | "down">;
   cellElite?: Record<string, boolean>;
+  cellEliteTrainer?: Record<string, boolean>;
 };
 
 function toWire(templateId: string, snap: Snapshot): WireTable {
@@ -131,6 +134,7 @@ function toWire(templateId: string, snap: Snapshot): WireTable {
     p: Object.keys(picks).length > 0 ? picks : undefined,
     u: remap(snap.cellTrends, (v) => (v === "up" ? 1 : 0)),
     s: flagged(snap.cellElite),
+    a: flagged(snap.cellEliteTrainer),
   };
 }
 
@@ -192,6 +196,7 @@ function fromWire(w: WireTable): SharedTable {
       columnTopPicks,
       cellTrends: remap(w.u, (v) => (v === 1 ? "up" : "down")),
       cellElite: flags(w.s),
+      cellEliteTrainer: flags(w.a),
     },
   };
 }

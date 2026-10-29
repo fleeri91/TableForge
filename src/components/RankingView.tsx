@@ -33,7 +33,7 @@ export function RankingView({
         </Button>
         <p className="text-xs text-muted-foreground">
           Emoji {POINTS.perEmoji} p · Toppval {POINTS.topPick} p · Stjärnkusk{" "}
-          {POINTS.elite} p · Färg{" "}
+          {POINTS.elite} p · Stjärntränare {POINTS.eliteTrainer} p · Färg{" "}
           {CELL_COLORS.map(
             (c) => `${c.label} ${POINTS.color[c.value] ?? 0}`,
           ).join(" / ")}
@@ -105,6 +105,16 @@ export function RankingView({
                         className="-ml-1 size-3.5 shrink-0 fill-amber-400 text-amber-400"
                         strokeWidth={0}
                         aria-label="Stjärnkusk"
+                      />
+                    )}
+                    {h.eliteTrainer && (
+                      <Star
+                        className={[
+                          "size-3.5 shrink-0 fill-sky-500 text-sky-500",
+                          h.elite ? "-ml-2" : "-ml-1",
+                        ].join(" ")}
+                        strokeWidth={0}
+                        aria-label="Stjärntränare"
                       />
                     )}
                     <span className="flex min-w-0 flex-1 flex-wrap gap-1 text-base leading-none">

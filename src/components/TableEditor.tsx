@@ -275,6 +275,10 @@ export function TableEditor({
   const [cellElite, setCellElite] = useState<Record<string, boolean>>(
     () => (saved?.cellElite as Record<string, boolean>) ?? {},
   );
+  // Cells whose start has an elite (star) trainer.
+  const [cellEliteTrainer, setCellEliteTrainer] = useState<
+    Record<string, boolean>
+  >(() => (saved?.cellEliteTrainer as Record<string, boolean>) ?? {});
 
   // ── Persist to localStorage ────────────────────────────────────────────────
   // Debounced: typing fires many state updates in
@@ -294,6 +298,7 @@ export function TableEditor({
     columnTopPicks,
     cellTrends,
     cellElite,
+    cellEliteTrainer,
   };
   if (snapshotRef) snapshotRef.current = latestSnapshotRef.current;
 
@@ -322,6 +327,7 @@ export function TableEditor({
     columnTopPicks,
     cellTrends,
     cellElite,
+    cellEliteTrainer,
   ]);
 
   useEffect(() => () => persist(), [persist]);
@@ -428,6 +434,18 @@ export function TableEditor({
     cellElite[cellKey(rId, cId)] ?? false;
   const toggleCellElite = (rId: string, cId: string) =>
     setCellElite((prev) => {
+      const k = cellKey(rId, cId);
+      if (prev[k]) {
+        const { [k]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [k]: true };
+    });
+
+  const isCellEliteTrainer = (rId: string, cId: string) =>
+    cellEliteTrainer[cellKey(rId, cId)] ?? false;
+  const toggleCellEliteTrainer = (rId: string, cId: string) =>
+    setCellEliteTrainer((prev) => {
       const k = cellKey(rId, cId);
       if (prev[k]) {
         const { [k]: _, ...rest } = prev;
@@ -587,6 +605,7 @@ export function TableEditor({
                 handicap={getCellHandicap(row.id, col.id)}
                 trend={getCellTrend(row.id, col.id)}
                 isElite={isCellElite(row.id, col.id)}
+                isEliteTrainer={isCellEliteTrainer(row.id, col.id)}
                 onOpenMenu={openCtxMenu}
               />
             ))}
@@ -655,6 +674,14 @@ export function TableEditor({
                 onToggle: () => toggleCellElite(ctxMenu.rowId, ctxMenu.colId),
               },
             },
+            {
+              toggle: {
+                label: "Stjärntränare",
+                checked: isCellEliteTrainer(ctxMenu.rowId, ctxMenu.colId),
+                onToggle: () =>
+                  toggleCellEliteTrainer(ctxMenu.rowId, ctxMenu.colId),
+              },
+            },
             { divider: true },
             // The handicap badge sits below the cell, so the last row has
             // no room for one.
@@ -713,6 +740,7 @@ interface TableCellProps {
   handicap: Handicap | null;
   trend: Trend | null;
   isElite: boolean;
+  isEliteTrainer: boolean;
   onOpenMenu: (e: React.MouseEvent, rowId: string, colId: string) => void;
 }
 
@@ -736,6 +764,7 @@ const TableCell = memo(function TableCell({
   handicap,
   trend,
   isElite,
+  isEliteTrainer,
   onOpenMenu,
 }: TableCellProps) {
   return (
@@ -785,10 +814,11 @@ const TableCell = memo(function TableCell({
         </div>
       )}
 
-      {/* Elite driver and form trend — corner flags that take no space
-          from the cell's contents. The elite flag folds into the top-left
-          corner; the trend flag sits top-right for up, bottom-right for
-          down, so its position alone reads as the direction. */}
+      {/* Elite driver/trainer and form trend — corner flags that take no
+          space from the cell's contents. The elite driver flag folds into
+          the top-left corner and the elite trainer flag into the
+          bottom-left; the trend flag sits top-right for up, bottom-right
+          for down, so its position alone reads as the direction. */}
       {!isDisabled && isElite && (
         <span
           className="absolute top-0 left-0 size-4 bg-amber-400 pointer-events-none [clip-path:polygon(0_0,100%_0,0_100%)]"
@@ -796,6 +826,17 @@ const TableCell = memo(function TableCell({
         >
           <Star
             className="absolute top-px left-px size-2 text-white fill-current"
+            strokeWidth={0}
+          />
+        </span>
+      )}
+      {!isDisabled && isEliteTrainer && (
+        <span
+          className="absolute bottom-0 left-0 size-4 bg-sky-500 pointer-events-none [clip-path:polygon(0_0,100%_100%,0_100%)]"
+          title="Stjärntränare"
+        >
+          <Star
+            className="absolute bottom-px left-px size-2 text-white fill-current"
             strokeWidth={0}
           />
         </span>
