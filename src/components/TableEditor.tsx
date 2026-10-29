@@ -6,6 +6,13 @@ import type { TableTemplate } from "../config/templates";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -67,17 +74,9 @@ function withTopPick(
   return next;
 }
 
-// The triggering cell's viewport rect — the menu opens beside it and flips
-// to the opposite side when it would overflow the viewport.
-interface MenuAnchor {
-  left: number;
-  right: number;
-  top: number;
-  bottom: number;
-}
-
 interface ContextMenuState {
-  anchor: MenuAnchor;
+  // The triggering cell — the desktop menu opens beside it.
+  anchor: HTMLElement;
   rowId: string;
   colId: string;
 }
@@ -478,24 +477,19 @@ export function TableEditor({
   const openCtxMenu = useCallback(
     (e: React.MouseEvent, rowId: string, colId: string) => {
       e.preventDefault();
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const { left, right, top, bottom } = rect;
-      setCtxMenu({ anchor: { left, right, top, bottom }, rowId, colId });
+      setCtxMenu({ anchor: e.currentTarget as HTMLElement, rowId, colId });
     },
     [],
   );
 
+  // The desktop dropdown handles Escape and outside clicks itself; this
+  // covers Escape for the mobile sheet, whose backdrop handles taps.
   useEffect(() => {
-    const close = () => setCtxMenu(null);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") setCtxMenu(null);
     };
-    window.addEventListener("click", close);
     window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("click", close);
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -808,13 +802,7 @@ const TableCell = memo(function TableCell({
         backgroundColor: isDisabled ? undefined : (color ?? undefined),
       }}
       onContextMenu={(e) => onOpenMenu(e, rowId, colId)}
-      onClick={(e) => {
-        // Stops the click from bubbling to the window-level listener that
-        // closes the context menu on any outside click — otherwise the menu
-        // this very click just opened would immediately close again.
-        e.stopPropagation();
-        onOpenMenu(e, rowId, colId);
-      }}
+      onClick={(e) => onOpenMenu(e, rowId, colId)}
     >
       {/* Emoji overlay */}
       {!isDisabled && emojis.length > 0 && (
@@ -894,68 +882,20 @@ function ContextMenu({
   onClose,
   items,
 }: {
-  anchor: MenuAnchor;
+  anchor: HTMLElement;
   onClose: () => void;
   items: MenuItem[];
 }) {
   const isMobile = useIsMobile();
 
-  // Anchored beside the triggering element, but on a narrow phone
-  // viewport that point is often near the screen edge — and a small popup
-  // tacked onto the edge of a cell is awkward to hit with a thumb regardless.
-  // Below the `sm` breakpoint the menu renders as a full-width bottom sheet
-  // instead (see the `isMobile` branch below), so this positioning — and the
-  // anchor entirely — only matters for the desktop popup.
-  //
-  // A callback ref (runs synchronously right after the node mounts, before
-  // paint) measures the menu's actual size and positions it via direct style
-  // mutation — no extra render needed. By default it opens to the right of
-  // the cell, top-aligned. If that overflows the viewport horizontally it
-  // drops below the cell instead (left-aligned with it, or right-aligned if
-  // that still overflows), and goes above the cell if there's no room below.
-  // Clamping to the edge is the last resort. Re-fires whenever the anchor
-  // changes because it's memoized on it, so re-opening at a new spot
-  // re-positions.
-  const clampToViewport = useCallback(
-    (el: HTMLDivElement | null) => {
-      if (!el || isMobile) return;
-      // Reset to the unclamped anchor first so this is idempotent no matter
-      // how many times it runs — React (StrictMode, Fast Refresh) can and
-      // does replay ref callbacks against an already-mutated node, and
-      // measuring from that mutated position instead of the original anchor
-      // would compound the offset on every replay.
-      const gap = 4;
-      const margin = 8;
-      el.style.left = `${anchor.right + gap}px`;
-      el.style.top = `${anchor.top}px`;
-      const { width, height } = el.getBoundingClientRect();
-      const maxLeft = window.innerWidth - margin - width;
-      const maxTop = window.innerHeight - margin - height;
-
-      const clamp = (v: number, max: number) =>
-        Math.min(Math.max(v, margin), Math.max(margin, max));
-
-      let left = anchor.right + gap;
-      let top = anchor.top;
-      if (left > maxLeft || left < margin) {
-        // Beside the cell doesn't fit — place it below (or above) instead.
-        left = anchor.left;
-        if (left > maxLeft) left = anchor.right - width;
-        left = clamp(left, maxLeft);
-        top = anchor.bottom + gap;
-        if (top > maxTop) {
-          const above = anchor.top - gap - height;
-          top = above >= margin ? above : clamp(top, maxTop);
-        }
-      } else if (top > maxTop) {
-        const flipped = anchor.bottom - height;
-        top = flipped >= margin ? flipped : clamp(top, maxTop);
-      }
-      el.style.left = `${left}px`;
-      el.style.top = `${top}px`;
-    },
-    [anchor.left, anchor.right, anchor.top, anchor.bottom, isMobile],
-  );
+  // On desktop this is a DropdownMenu anchored beside the cell, which flips
+  // and shifts itself to stay inside the viewport. On a narrow phone
+  // viewport a small popup tacked onto the edge of a cell is awkward to hit
+  // with a thumb, so below the `sm` breakpoint it renders as a full-width
+  // bottom sheet instead (see the `isMobile` branch below). The sheet isn't
+  // a menu, so toggles, actions and dividers render as plain controls there
+  // and as DropdownMenu items on desktop; the picker sections are the same
+  // in both.
 
   // Locks background scroll while the mobile sheet is open, like a modal —
   // otherwise a drag on the sheet's own scroll area can also pan the table
@@ -1148,6 +1088,18 @@ function ContextMenu({
 
     if (item.toggle) {
       const { label, checked, onToggle } = item.toggle;
+      if (!isMobile) {
+        return (
+          <DropdownMenuCheckboxItem
+            key={i}
+            checked={checked}
+            onCheckedChange={onToggle}
+            className="mx-1 h-8 pl-2"
+          >
+            {label}
+          </DropdownMenuCheckboxItem>
+        );
+      }
       return (
         <button
           key={i}
@@ -1176,7 +1128,28 @@ function ContextMenu({
     }
 
     if (item.divider) {
-      return <Separator key={i} className="my-1.5 mx-2 data-horizontal:w-auto" />;
+      return isMobile ? (
+        <Separator key={i} className="my-1.5 mx-2 data-horizontal:w-auto" />
+      ) : (
+        <DropdownMenuSeparator key={i} className="my-1.5 mx-2" />
+      );
+    }
+
+    if (!isMobile) {
+      return (
+        <DropdownMenuItem
+          key={i}
+          variant={item.danger ? "destructive" : "default"}
+          disabled={item.disabled}
+          // Deleting this cell's row closes the menu on its own (the parent
+          // clears ctxMenu); everything else keeps it open.
+          closeOnClick={false}
+          className="mx-1 h-8 px-2"
+          onClick={item.onClick}
+        >
+          {item.label}
+        </DropdownMenuItem>
+      );
     }
 
     return (
@@ -1191,8 +1164,8 @@ function ContextMenu({
             : "",
         ].join(" ")}
         onClick={() => {
-          // Deleting this cell's row/column closes the menu on its own (the
-          // parent clears ctxMenu); everything else keeps it open.
+          // Deleting this cell's row closes the menu on its own (the parent
+          // clears ctxMenu); everything else keeps it open.
           if (!item.disabled) item.onClick?.();
         }}
       >
@@ -1241,13 +1214,24 @@ function ContextMenu({
   }
 
   return (
-    <div
-      ref={clampToViewport}
-      className="fixed z-50 max-h-[calc(100dvh-16px)] overflow-y-auto overscroll-contain bg-popover text-popover-foreground rounded-xl shadow-2xl border border-border border-t-[3px] border-t-(--tf-accent) ring-1 ring-foreground/10 py-1.5 min-w-50 text-sm"
-      style={{ left: anchor.right + 4, top: anchor.top }}
-      onClick={(e) => e.stopPropagation()}
+    // Non-modal so a click on another cell both closes this menu and opens
+    // that cell's, instead of being swallowed by a modal backdrop.
+    <DropdownMenu
+      open
+      modal={false}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      {content}
-    </div>
+      <DropdownMenuContent
+        anchor={anchor}
+        side="right"
+        align="start"
+        collisionPadding={8}
+        className="w-auto min-w-50 overscroll-contain rounded-xl border border-border border-t-[3px] border-t-(--tf-accent) px-0 py-1.5 shadow-2xl"
+      >
+        {content}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
