@@ -18,6 +18,11 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Toaster } from '@/components/ui/sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ButtonGroup } from '@/components/ui/button-group';
+import {
+  Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList,
+} from '@/components/ui/command';
 
 // ── Saved tables registry ────────────────────────────────────────────────────
 // Named snapshots live under their own localStorage key; a lightweight
@@ -326,226 +331,273 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40 tf-glow flex flex-col transition-colors">
-      {/* Toolbar. On mobile this is two fixed rows — brand (with the theme
-          toggle, so it's reachable without scrolling) and a horizontally-
-          scrollable actions row — instead of one `flex-wrap` row. Wrapping
-          on a narrow screen split the toolbar across an unpredictable
-          number of lines and stranded `ml-auto` mid-row, leaving orphaned
-          separators and a lone button dangling on its own line. `sm:contents`
-          on both rows dissolves them back into one flat, wrapping row at the
-          `sm` breakpoint, so desktop is pixel-identical to before. */}
-      <header className="print:hidden relative bg-card border-b border-border px-3 sm:px-5 py-2.5 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-[3px] before:bg-primary">
-        <div className="flex items-center justify-between gap-2 sm:contents">
-          <Brand />
+    <TooltipProvider>
+      <div className="min-h-screen bg-muted/40 tf-glow flex flex-col transition-colors">
+        {/* Toolbar. On mobile this is two fixed rows — brand (with the theme
+            toggle, so it's reachable without scrolling) and a horizontally-
+            scrollable actions row — instead of one `flex-wrap` row. Wrapping
+            on a narrow screen split the toolbar across an unpredictable
+            number of lines and stranded `ml-auto` mid-row, leaving orphaned
+            separators and a lone button dangling on its own line. `sm:contents`
+            on both rows dissolves them back into one flat, wrapping row at the
+            `sm` breakpoint, so desktop is pixel-identical to before. */}
+        <header className="print:hidden relative bg-card border-b border-border px-3 sm:px-5 py-2.5 flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 shadow-sm before:absolute before:inset-x-0 before:top-0 before:h-[3px] before:bg-primary">
+          <div className="flex items-center justify-between gap-2 sm:contents">
+            <Brand />
 
-          {/* Mobile-only theme toggle, kept beside the brand so it's always
-              visible; the desktop instance further down covers `sm:` and up. */}
-          <Button variant="ghost" size="icon" className="size-9 sm:hidden" onClick={() => setIsDark(d => !d)} title={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'} aria-label={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'}>
-            {isDark ? <Sun /> : <Moon />}
-          </Button>
-        </div>
-
-        <Separator orientation="vertical" className="hidden sm:block h-5" />
-
-        {/* Actions row */}
-        <div data-scroll-hide className="flex items-center gap-2 overflow-x-auto sm:contents">
-          {/* Template picker */}
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="hidden sm:inline font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Mall
-            </span>
-            <Select
-              items={Object.fromEntries(TABLE_TEMPLATES.map(t => [t.id, t.label]))}
-              value={template.id}
-              onValueChange={v => {
-                const t = TABLE_TEMPLATES.find(t => t.id === v);
-                if (!t) return;
-                clearShareHash();
-                setActiveTemplate(t);
-                setActiveSlot({ kind: 'draft', templateId: t.id });
-              }}
+            {/* Mobile-only theme toggle, kept beside the brand so it's always
+                visible; the desktop instance further down covers `sm:` and up. */}
+            <ToolbarTooltip
+              label={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'}
+              trigger={<Button variant="ghost" size="icon" className="size-9 sm:hidden" onClick={() => setIsDark(d => !d)} />}
             >
-              <SelectTrigger size="sm" className="data-[size=sm]:h-9 sm:data-[size=sm]:h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TABLE_TEMPLATES.map(t => (
-                  <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              {isDark ? <Sun /> : <Moon />}
+            </ToolbarTooltip>
           </div>
 
           <Separator orientation="vertical" className="hidden sm:block h-5" />
 
-          {/* Save / Update */}
-          <div className="shrink-0">
-            {activeSave ? (
-              <Button variant="outline" size="icon" className="size-9 sm:size-8" onClick={updateCurrentSave} title={`Uppdatera "${activeSave.name}"`} aria-label={`Uppdatera "${activeSave.name}"`}>
-                <Save />
-              </Button>
-            ) : (
-              <Popover
-                open={saveOpen}
-                onOpenChange={o => {
-                  setSaveOpen(o);
-                  if (o) { setSaveName(defaultName()); setLoadOpen(false); }
+          {/* Actions row */}
+          <div data-scroll-hide className="flex items-center gap-2 overflow-x-auto sm:contents">
+            {/* Template picker */}
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="hidden sm:inline font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Mall
+              </span>
+              <Select
+                items={Object.fromEntries(TABLE_TEMPLATES.map(t => [t.id, t.label]))}
+                value={template.id}
+                onValueChange={v => {
+                  const t = TABLE_TEMPLATES.find(t => t.id === v);
+                  if (!t) return;
+                  clearShareHash();
+                  setActiveTemplate(t);
+                  setActiveSlot({ kind: 'draft', templateId: t.id });
                 }}
               >
-                <PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8" title="Spara tabell" aria-label="Spara tabell" />}>
+                <SelectTrigger size="sm" className="data-[size=sm]:h-9 sm:data-[size=sm]:h-8">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TABLE_TEMPLATES.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator orientation="vertical" className="hidden sm:block h-5" />
+
+            {/* Save, load, share and export, joined into one group. */}
+            <ButtonGroup aria-label="Tabell" className="shrink-0">
+              {activeSave ? (
+                <ToolbarTooltip
+                  label={`Uppdatera "${activeSave.name}"`}
+                  trigger={<Button variant="outline" size="icon" className="size-9 sm:size-8" onClick={updateCurrentSave} />}
+                >
                   <Save />
-                </PopoverTrigger>
-                <PopoverContent align="start" className="w-64 max-w-[calc(100vw-1.5rem)]">
-                  <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    Spara tabell som
-                  </p>
-                  <Input
-                    autoFocus
-                    value={saveName}
-                    onChange={e => setSaveName(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') confirmSave();
-                      if (e.key === 'Escape') setSaveOpen(false);
-                    }}
-                    placeholder="Tabellnamn"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setSaveOpen(false)}>
-                      Avbryt
-                    </Button>
-                    <Button size="sm" onClick={confirmSave}>
-                      Spara
-                    </Button>
-                  </div>
+                </ToolbarTooltip>
+              ) : (
+                <Popover
+                  open={saveOpen}
+                  onOpenChange={o => {
+                    setSaveOpen(o);
+                    if (o) { setSaveName(defaultName()); setLoadOpen(false); }
+                  }}
+                >
+                  <ToolbarTooltip
+                    label="Spara tabell"
+                    trigger={<PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8" />} />}
+                  >
+                    <Save />
+                  </ToolbarTooltip>
+                  <PopoverContent align="start" className="w-64 max-w-[calc(100vw-1.5rem)]">
+                    <p className="font-display text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      Spara tabell som
+                    </p>
+                    <Input
+                      autoFocus
+                      value={saveName}
+                      onChange={e => setSaveName(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') confirmSave();
+                        if (e.key === 'Escape') setSaveOpen(false);
+                      }}
+                      placeholder="Tabellnamn"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => setSaveOpen(false)}>
+                        Avbryt
+                      </Button>
+                      <Button size="sm" onClick={confirmSave}>
+                        Spara
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {/* Load */}
+              <Popover open={loadOpen} onOpenChange={o => { setLoadOpen(o); if (o) setSaveOpen(false); }}>
+                <ToolbarTooltip
+                  label={`Öppna en sparad tabell${savedTables.length > 0 ? ` (${savedTables.length} sparade)` : ''}`}
+                  trigger={<PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8" />} />}
+                >
+                  <FolderOpen />
+                </ToolbarTooltip>
+                <PopoverContent align="start" className="w-72 max-w-[calc(100vw-1.5rem)] p-0 gap-0">
+                  {savedTables.length === 0 ? (
+                    <p className="px-3 py-3 text-xs text-muted-foreground">
+                      Inga sparade tabeller än. Använd Spara för att skapa en.
+                    </p>
+                  ) : (
+                    // Searches names only; the item values are ids, which
+                    // would otherwise match stray letters and digits.
+                    <Command
+                      loop
+                      filter={(_value, search, keywords) =>
+                        keywords?.join(' ').toLowerCase().includes(search.trim().toLowerCase()) ? 1 : 0}
+                    >
+                      <CommandInput placeholder="Sök sparade tabeller" />
+                      <CommandList data-scroll-hide>
+                        <CommandEmpty>Inga träffar</CommandEmpty>
+                        <CommandGroup heading="Sparade tabeller">
+                          {[...savedTables].sort((a, b) => b.savedAt - a.savedAt).map(entry => (
+                            <CommandItem
+                              key={entry.id}
+                              value={entry.id}
+                              keywords={[entry.name]}
+                              onSelect={() => loadSave(entry)}
+                              data-checked={activeSave?.id === entry.id}
+                              className="py-2"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {entry.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground tabular-nums">
+                                  {formatRelative(entry.savedAt)}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                className="text-muted-foreground hover:text-destructive"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  askDeleteSave(entry);
+                                }}
+                                title={`Radera "${entry.name}"`}
+                                aria-label={`Radera "${entry.name}"`}
+                              >
+                                <Trash2 />
+                              </Button>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  )}
                 </PopoverContent>
               </Popover>
-            )}
+
+              <ToolbarTooltip
+                label="Kopiera en delningslänk till tabellen"
+                trigger={<Button variant="outline" size="icon" className="size-9 sm:size-8" onClick={shareTable} />}
+              >
+                <Link />
+              </ToolbarTooltip>
+
+              <ToolbarTooltip
+                label="Exportera tabellen som PDF"
+                trigger={<Button variant="outline" size="icon" className="size-9 sm:size-8" onClick={exportPdf} />}
+              >
+                <FileText />
+              </ToolbarTooltip>
+            </ButtonGroup>
+
+            <Badge variant="outline" className="hidden lg:inline-flex ml-1 text-muted-foreground font-normal shrink-0">
+              Tryck på en cell för alternativ
+            </Badge>
+
+            {/* Reset button */}
+            <ToolbarTooltip
+              label="Rensa all data och återställ tabellen"
+              trigger={<Button variant="destructive" size="icon" className="size-9 sm:size-8 shrink-0 sm:ml-auto" onClick={() => setResetOpen(true)} />}
+            >
+              <RotateCcw />
+            </ToolbarTooltip>
           </div>
 
-          {/* Load */}
-          <Popover open={loadOpen} onOpenChange={o => { setLoadOpen(o); if (o) setSaveOpen(false); }}>
-            <PopoverTrigger render={<Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" title="Öppna en sparad tabell" aria-label={`Öppna en sparad tabell${savedTables.length > 0 ? ` (${savedTables.length} sparade)` : ''}`} />}>
-              <FolderOpen />
-            </PopoverTrigger>
-            <PopoverContent data-scroll-hide align="start" className="w-72 max-w-[calc(100vw-1.5rem)] max-h-80 overflow-y-auto p-1.5 gap-0">
-              <p className="font-display px-2 pt-1 pb-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                Sparade tabeller
-              </p>
-              {savedTables.length === 0 ? (
-                <p className="px-2 py-3 text-xs text-muted-foreground">
-                  Inga sparade tabeller än. Använd Spara för att skapa en.
-                </p>
-              ) : (
-                [...savedTables].sort((a, b) => b.savedAt - a.savedAt).map(entry => (
-                  <div
-                    key={entry.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => loadSave(entry)}
-                    onKeyDown={e => { if (e.key === 'Enter') loadSave(entry); }}
-                    className={[
-                      'w-full flex items-center justify-between gap-2 rounded-md px-2 py-2 text-left cursor-pointer transition-colors',
-                      activeSave?.id === entry.id ? 'bg-accent' : 'hover:bg-accent/60',
-                    ].join(' ')}
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {entry.name}
-                      </p>
-                      <p className="text-xs text-muted-foreground tabular-nums">
-                        {formatRelative(entry.savedAt)}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon-sm"
-                      onClick={e => {
-                        e.stopPropagation();
-                        askDeleteSave(entry);
-                      }}
-                      title="Radera"
-                    >
-                      <Trash2 />
-                    </Button>
-                  </div>
-                ))
-              )}
-            </PopoverContent>
-          </Popover>
-
-          {/* Share */}
-          <Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" onClick={shareTable} title="Kopiera en delningslänk till tabellen" aria-label="Kopiera en delningslänk till tabellen">
-            <Link />
-          </Button>
-
-          {/* Export */}
-          <Button variant="outline" size="icon" className="size-9 sm:size-8 shrink-0" onClick={exportPdf} title="Exportera tabellen som PDF" aria-label="Exportera tabellen som PDF">
-            <FileText />
-          </Button>
-
-          <Badge variant="outline" className="hidden lg:inline-flex ml-1 text-muted-foreground font-normal shrink-0">
-            Tryck på en cell för alternativ · Tryck på en rubrik för att byta namn
-          </Badge>
-
-          {/* Reset button */}
-          <Button
-            variant="destructive"
-            size="icon"
-            className="size-9 sm:size-8 shrink-0 sm:ml-auto"
-            onClick={() => setResetOpen(true)}
-            title="Rensa all data och återställ tabellen"
-            aria-label="Rensa all data och återställ tabellen"
+          {/* Desktop-only theme toggle — mirrors its original end-of-toolbar position; the mobile instance lives in the brand row above. */}
+          <ToolbarTooltip
+            label={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'}
+            trigger={<Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => setIsDark(d => !d)} />}
           >
-            <RotateCcw />
-          </Button>
-        </div>
+            {isDark ? <Sun /> : <Moon />}
+          </ToolbarTooltip>
+        </header>
 
-        {/* Desktop-only theme toggle — mirrors its original end-of-toolbar position; the mobile instance lives in the brand row above. */}
-        <Button variant="ghost" size="icon" className="hidden sm:inline-flex" onClick={() => setIsDark(d => !d)} title={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'} aria-label={isDark ? 'Byt till ljust läge' : 'Byt till mörkt läge'}>
-          {isDark ? <Sun /> : <Moon />}
-        </Button>
-      </header>
+        {/* Canvas */}
+        <main data-scroll-hide className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6 md:p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
+          <TableEditor
+            key={`${storageKey}-${resetCount}`}
+            template={template}
+            storageKey={storageKey}
+            initialSnapshot={activeSlot.kind === 'shared' ? sharedSnapshot : null}
+            snapshotRef={snapshotRef}
+            accentColor={getGameTypeColor(template.id)}
+            accentSoft={getGameTypeColor(template.id, 3)}
+            accentBorder={getGameTypeColor(template.id, 7)}
+          />
+        </main>
 
-      {/* Canvas */}
-      <main data-scroll-hide className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6 md:p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
-        <TableEditor
-          key={`${storageKey}-${resetCount}`}
-          template={template}
-          storageKey={storageKey}
-          initialSnapshot={activeSlot.kind === 'shared' ? sharedSnapshot : null}
-          snapshotRef={snapshotRef}
-          accentColor={getGameTypeColor(template.id)}
-          accentSoft={getGameTypeColor(template.id, 3)}
-          accentBorder={getGameTypeColor(template.id, 7)}
-        />
-      </main>
+        <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Återställ tabellen?</AlertDialogTitle>
+              <AlertDialogDescription>
+                All data i tabellen rensas. Det går inte att ångra.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Avbryt</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={() => {
+                  resetTable();
+                  setResetOpen(false);
+                }}
+              >
+                Återställ
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
-      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Återställ tabellen?</AlertDialogTitle>
-            <AlertDialogDescription>
-              All data i tabellen rensas. Det går inte att ångra.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Avbryt</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => {
-                resetTable();
-                setResetOpen(false);
-              }}
-            >
-              Återställ
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        {overlays}
+      </div>
+    </TooltipProvider>
+  );
+}
 
-      {overlays}
-    </div>
+// Names an icon-only toolbar button on hover and keyboard focus, and gives it
+// the same name for screen readers. `trigger` is the button (or another
+// trigger that renders one); its icon goes in `children`.
+function ToolbarTooltip({
+  label, trigger, children,
+}: {
+  label: string;
+  trigger: React.ReactElement;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={trigger} aria-label={label}>
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }
 
