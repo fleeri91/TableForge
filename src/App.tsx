@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Check, Link } from 'lucide-react';
+import { Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Link } from 'lucide-react';
+import { toast } from 'sonner';
 import { TableEditor } from './components/TableEditor';
 import { TABLE_TEMPLATES, type TableTemplate } from './config/templates';
 import { getGameTypeColor } from './config/gameTypes';
@@ -12,6 +13,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Toaster } from '@/components/ui/sonner';
 
 // ── Saved tables registry ────────────────────────────────────────────────────
 // Named snapshots live under their own localStorage key; a lightweight
@@ -72,8 +78,11 @@ export function App() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [loadOpen, setLoadOpen] = useState(false);
   const [saveName, setSaveName] = useState('');
-  const [feedback, setFeedback] = useState<{ text: string; visible: boolean } | null>(null);
-  const feedbackTimers = useRef<{ hide?: number; clear?: number }>({});
+  // Destructive actions wait for confirmation in an AlertDialog.
+  const [resetOpen, setResetOpen] = useState(false);
+  // Kept after the dialog closes so its text doesn't blank mid-animation.
+  const [pendingDelete, setPendingDelete] = useState<SavedTable | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [started, setStarted] = useState(false);
   const [sharedSnapshot, setSharedSnapshot] = useState<Record<string, unknown> | null>(null);
   const [sharePending, setSharePending] = useState(() => readShareToken() !== null);
@@ -127,6 +136,55 @@ export function App() {
     catch { /* storage full or unavailable */ }
   }, [savedTables]);
 
+  // Deleting a save works from both the startup screen and the toolbar, so
+  // it (and its confirmation dialog) can't depend on a table being open.
+  function deleteSave(entry: SavedTable) {
+    localStorage.removeItem(entry.dataKey);
+    localStorage.removeItem(draftKeyForSave(entry.id));
+    setSavedTables(prev => prev.filter(s => s.id !== entry.id));
+    if (activeSlot.kind === 'save' && activeSlot.saveId === entry.id) {
+      const fallback = TABLE_TEMPLATES.find(t => t.id === entry.templateId)
+        ?? activeTemplate ?? TABLE_TEMPLATES[0];
+      setActiveTemplate(fallback);
+      setActiveSlot({ kind: 'draft', templateId: fallback.id });
+    }
+    toast.success(`"${entry.name}" raderad`);
+  }
+
+  function askDeleteSave(entry: SavedTable) {
+    setPendingDelete(entry);
+    setDeleteOpen(true);
+  }
+
+  const overlays = (
+    <>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Radera "{pendingDelete?.name}"?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Den sparade tabellen tas bort. Det går inte att ångra.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                if (pendingDelete) deleteSave(pendingDelete);
+                setDeleteOpen(false);
+              }}
+            >
+              Radera
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Toaster theme={isDark ? 'dark' : 'light'} position="bottom-center" />
+    </>
+  );
+
   // Avoids flashing the startup screen while a share link decodes.
   if (sharePending) return null;
 
@@ -134,17 +192,21 @@ export function App() {
   // does is pick one — there's no "blank" table anymore.
   if (!started || !activeTemplate) {
     return (
-      <StartupScreen
-        savedTables={savedTables}
-        shareError={shareError}
-        onChoose={t => {
-          clearShareHash();
-          setActiveTemplate(t);
-          setActiveSlot({ kind: 'draft', templateId: t.id });
-          setStarted(true);
-        }}
-        onOpenSave={loadSave}
-      />
+      <>
+        <StartupScreen
+          savedTables={savedTables}
+          shareError={shareError}
+          onChoose={t => {
+            clearShareHash();
+            setActiveTemplate(t);
+            setActiveSlot({ kind: 'draft', templateId: t.id });
+            setStarted(true);
+          }}
+          onOpenSave={loadSave}
+          onDeleteSave={askDeleteSave}
+        />
+        {overlays}
+      </>
     );
   }
 
@@ -178,20 +240,10 @@ export function App() {
         return;
       }
       await navigator.clipboard.writeText(url);
-      flashFeedback('Länken kopierad');
+      toast.success('Länken kopierad');
     } catch {
-      flashFeedback('Det gick inte att skapa en delningslänk');
+      toast.error('Det gick inte att skapa en delningslänk');
     }
-  }
-
-  function flashFeedback(text: string) {
-    if (feedbackTimers.current.hide) window.clearTimeout(feedbackTimers.current.hide);
-    if (feedbackTimers.current.clear) window.clearTimeout(feedbackTimers.current.clear);
-    setFeedback({ text, visible: true });
-    feedbackTimers.current.hide = window.setTimeout(() => {
-      setFeedback(f => (f ? { ...f, visible: false } : f));
-      feedbackTimers.current.clear = window.setTimeout(() => setFeedback(null), 300);
-    }, 1800);
   }
 
   function defaultName() {
@@ -206,9 +258,9 @@ export function App() {
     if (raw) {
       try {
         localStorage.setItem(activeSave.dataKey, raw);
-        flashFeedback(`"${activeSave.name}" uppdaterad`);
+        toast.success(`"${activeSave.name}" uppdaterad`);
       } catch {
-        flashFeedback('Uppdateringen misslyckades — är lagringen full?');
+        toast.error('Uppdateringen misslyckades — är lagringen full?');
       }
     }
     setSavedTables(prev => prev.map(s =>
@@ -227,9 +279,9 @@ export function App() {
         // Seed the working copy too, so continued edits don't touch the
         // snapshot again until the next explicit Update.
         localStorage.setItem(draftKeyForSave(id), raw);
-        flashFeedback(`Sparad som "${name}"`);
+        toast.success(`Sparad som "${name}"`);
       } catch {
-        flashFeedback('Det gick inte att spara — är lagringen full?');
+        toast.error('Det gick inte att spara — är lagringen full?');
       }
     }
     const entry: SavedTable = {
@@ -261,17 +313,9 @@ export function App() {
     setResetCount(c => c + 1); // force remount even if this save was already active
   }
 
-  function deleteSave(entry: SavedTable, e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!window.confirm(`Radera "${entry.name}"? Det går inte att ångra.`)) return;
-    localStorage.removeItem(entry.dataKey);
-    localStorage.removeItem(draftKeyForSave(entry.id));
-    setSavedTables(prev => prev.filter(s => s.id !== entry.id));
-    if (activeSlot.kind === 'save' && activeSlot.saveId === entry.id) {
-      const fallback = TABLE_TEMPLATES.find(t => t.id === entry.templateId) ?? template;
-      setActiveTemplate(fallback);
-      setActiveSlot({ kind: 'draft', templateId: fallback.id });
-    }
+  function resetTable() {
+    localStorage.removeItem(storageKey);
+    setResetCount(c => c + 1);
   }
 
   // Print just the table (toolbar hidden via print:hidden) using the browser's
@@ -336,7 +380,7 @@ export function App() {
           <Separator orientation="vertical" className="hidden sm:block h-5" />
 
           {/* Save / Update */}
-          <div className="relative shrink-0">
+          <div className="shrink-0">
             {activeSave ? (
               <Button variant="outline" size="icon" className="size-9 sm:size-8" onClick={updateCurrentSave} title={`Uppdatera "${activeSave.name}"`} aria-label={`Uppdatera "${activeSave.name}"`}>
                 <Save />
@@ -377,18 +421,6 @@ export function App() {
                 </PopoverContent>
               </Popover>
             )}
-
-            {feedback && (
-              <Badge
-                variant="secondary"
-                className={[
-                  'pointer-events-none absolute left-0 top-full mt-1.5 max-w-[80vw] truncate transition-opacity duration-300',
-                  feedback.visible ? 'opacity-100' : 'opacity-0',
-                ].join(' ')}
-              >
-                <Check /> {feedback.text}
-              </Badge>
-            )}
           </div>
 
           {/* Load */}
@@ -428,7 +460,10 @@ export function App() {
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={e => deleteSave(entry, e)}
+                      onClick={e => {
+                        e.stopPropagation();
+                        askDeleteSave(entry);
+                      }}
                       title="Radera"
                     >
                       <Trash2 />
@@ -458,10 +493,7 @@ export function App() {
             variant="destructive"
             size="icon"
             className="size-9 sm:size-8 shrink-0 sm:ml-auto"
-            onClick={() => {
-              localStorage.removeItem(storageKey);
-              setResetCount(c => c + 1);
-            }}
+            onClick={() => setResetOpen(true)}
             title="Rensa all data och återställ tabellen"
             aria-label="Rensa all data och återställ tabellen"
           >
@@ -488,6 +520,31 @@ export function App() {
           accentBorder={getGameTypeColor(template.id, 7)}
         />
       </main>
+
+      <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Återställ tabellen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All data i tabellen rensas. Det går inte att ångra.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                resetTable();
+                setResetOpen(false);
+              }}
+            >
+              Återställ
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {overlays}
     </div>
   );
 }
@@ -519,12 +576,13 @@ function Brand({ large = false }: { large?: boolean }) {
 }
 
 function StartupScreen({
-  savedTables, shareError, onChoose, onOpenSave,
+  savedTables, shareError, onChoose, onOpenSave, onDeleteSave,
 }: {
   savedTables: SavedTable[];
   shareError: boolean;
   onChoose: (template: TableTemplate) => void;
   onOpenSave: (entry: SavedTable) => void;
+  onDeleteSave: (entry: SavedTable) => void;
 }) {
   const recentSaves = [...savedTables].sort((a, b) => b.savedAt - a.savedAt);
 
@@ -568,24 +626,40 @@ function StartupScreen({
             <Separator className="flex-1" />
           </div>
           <div data-scroll-hide className="flex flex-col gap-1.5 w-full max-h-64 overflow-y-auto rounded-xl border border-border bg-card p-1.5 shadow-sm">
+            {/* The open and delete buttons sit side by side in one row,
+                since a button can't contain another button. */}
             {recentSaves.map(entry => (
-              <button
+              <div
                 key={entry.id}
-                type="button"
-                onClick={() => onOpenSave(entry)}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
+                className="flex items-center gap-1 rounded-lg pr-1 transition-colors hover:bg-accent"
               >
-                <span
-                  className="size-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: getGameTypeColor(entry.templateId ?? '') }}
-                />
-                <span className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">
-                  {entry.name}
-                </span>
-                <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-                  {formatRelative(entry.savedAt)}
-                </span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onOpenSave(entry)}
+                  className="flex flex-1 min-w-0 items-center gap-2.5 rounded-lg px-3 py-2 text-left"
+                >
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: getGameTypeColor(entry.templateId ?? '') }}
+                  />
+                  <span className="flex-1 min-w-0 text-sm font-medium text-foreground truncate">
+                    {entry.name}
+                  </span>
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {formatRelative(entry.savedAt)}
+                  </span>
+                </button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => onDeleteSave(entry)}
+                  title={`Radera "${entry.name}"`}
+                  aria-label={`Radera "${entry.name}"`}
+                >
+                  <Trash2 />
+                </Button>
+              </div>
             ))}
           </div>
         </div>

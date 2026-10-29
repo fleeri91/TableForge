@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -118,6 +119,8 @@ interface MenuItem {
 }
 
 const HANDICAP_PRESETS = [20, 40, 60, 80];
+// The color picker's "no color" option, as a ToggleGroup value.
+const NO_COLOR = "none";
 const TRENDS: { value: Trend; label: string }[] = [
   { value: "up", label: "Uppåt" },
   { value: "down", label: "Nedåt" },
@@ -902,6 +905,9 @@ function ContextMenu({
   );
 
   const renderItem = (item: MenuItem, i: number, isLocked: boolean) => {
+    // The pickers are ToggleGroups: arrow keys move between options, and each
+    // option reports its pressed state. The single-choice ones clear when the
+    // selected option is clicked again (the group's value becomes empty).
     if (item.colorPicker) {
       const { active, onSelect } = item.colorPicker;
       return (
@@ -909,33 +915,34 @@ function ContextMenu({
           <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Cellfärg
           </p>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Clear */}
-            <button
-              className={[
-                "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-transform hover:scale-110 bg-background",
-                active === null ? "border-primary scale-110" : "border-border",
-              ].join(" ")}
-              onClick={() => onSelect(null)}
+          <ToggleGroup
+            aria-label="Cellfärg"
+            spacing={1.5}
+            className="flex-wrap"
+            value={[active ?? NO_COLOR]}
+            onValueChange={([next]) =>
+              onSelect(next === undefined || next === NO_COLOR ? null : next)
+            }
+          >
+            <ToggleGroupItem
+              value={NO_COLOR}
               title="Ingen färg"
+              aria-label="Ingen färg"
+              className="size-8 min-w-0 p-0 rounded-full border-2 border-border bg-background hover:bg-background hover:scale-110 transition-transform aria-pressed:bg-background aria-pressed:border-primary aria-pressed:scale-110"
             >
               <X className="size-2.5 text-muted-foreground" />
-            </button>
+            </ToggleGroupItem>
             {CELL_COLORS.map((c) => (
-              <button
+              <ToggleGroupItem
                 key={c.value}
-                className={[
-                  "w-8 h-8 rounded-full border-2 transition-transform hover:scale-110",
-                  active === c.value
-                    ? "border-primary scale-110"
-                    : "border-transparent hover:border-muted-foreground",
-                ].join(" ")}
-                style={{ backgroundColor: c.value }}
-                onClick={() => onSelect(c.value)}
+                value={c.value}
                 title={c.label}
+                aria-label={c.label}
+                className="size-8 min-w-0 p-0 rounded-full border-2 border-transparent hover:border-muted-foreground hover:scale-110 transition-transform aria-pressed:border-primary aria-pressed:scale-110"
+                style={{ backgroundColor: c.value }}
               />
             ))}
-          </div>
+          </ToggleGroup>
         </div>
       );
     }
@@ -945,44 +952,51 @@ function ContextMenu({
       // (and a margin around it) is tappable without enlarging the visible
       // buttons. Neighbors' pads overlap in the 6px gap; the later one wins.
       const { active, onToggle, topPicks, onToggleTopPick } = item.emojiPicker;
+      const emojiClass =
+        "relative p-4 w-6 h-6 min-w-0 rounded-lg text-[24px] leading-none transition-colors before:absolute before:-inset-[5px] before:content-[''] hover:bg-accent aria-pressed:bg-accent aria-pressed:ring-1";
       return (
         <div key={i} className="px-3 pt-2 pb-2.5">
           <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Emojis
           </p>
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <ToggleGroup
+            aria-label="Emojis"
+            multiple
+            spacing={1.5}
+            className="flex-wrap"
+            value={active}
+          >
             {CELL_EMOJIS.map((e) => (
-              <button
+              <ToggleGroupItem
                 key={e.value}
-                className={[
-                  "relative p-4 w-6 h-6 rounded-lg text-[24px] leading-none flex items-center justify-center transition-colors before:absolute before:-inset-[5px] before:content-['']",
-                  active.includes(e.value)
-                    ? "bg-accent ring-1 ring-primary"
-                    : "hover:bg-accent",
-                ].join(" ")}
-                onClick={() => onToggle(e.value)}
+                value={e.value}
                 title={e.label}
+                aria-label={e.label}
+                className={`${emojiClass} aria-pressed:ring-primary`}
+                onPressedChange={() => onToggle(e.value)}
               >
                 {e.value}
-              </button>
+              </ToggleGroupItem>
             ))}
-          </div>
+          </ToggleGroup>
           {active.length > 0 && (
             <>
               <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-2.5 mb-2">
                 Kolumnens toppval
               </p>
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <ToggleGroup
+                aria-label="Kolumnens toppval"
+                multiple
+                spacing={1.5}
+                className="flex-wrap"
+                value={topPicks}
+              >
                 {active.map((emoji) => (
-                  <button
+                  <ToggleGroupItem
                     key={emoji}
-                    className={[
-                      "relative p-4 w-6 h-6 rounded-lg text-[24px] leading-none flex items-center justify-center transition-colors before:absolute before:-inset-[5px] before:content-['']",
-                      topPicks.includes(emoji)
-                        ? "bg-accent ring-1 ring-amber-400"
-                        : "hover:bg-accent",
-                    ].join(" ")}
-                    onClick={() => onToggleTopPick(emoji)}
+                    value={emoji}
+                    className={`${emojiClass} aria-pressed:ring-amber-400`}
+                    onPressedChange={() => onToggleTopPick(emoji)}
                     title={
                       topPicks.includes(emoji)
                         ? "Ta bort toppval"
@@ -992,9 +1006,9 @@ function ContextMenu({
                     <span data-top-pick={topPicks.includes(emoji) || undefined}>
                       {emoji}
                     </span>
-                  </button>
+                  </ToggleGroupItem>
                 ))}
-              </div>
+              </ToggleGroup>
             </>
           )}
         </div>
@@ -1010,28 +1024,24 @@ function ContextMenu({
           </p>
           {/* New handicaps always go below the cell; older saves may still
               hold "above" ones, which keep rendering where they were. */}
-          <div className="flex items-center gap-1.5">
-            {HANDICAP_PRESETS.map((meters) => {
-              const isActive = active?.meters === meters;
-              return (
-                <button
-                  key={meters}
-                  className={[
-                    "h-8 px-1.5 rounded-md font-display text-sm font-bold tabular-nums",
-                    isActive
-                      ? "bg-(--tf-accent) text-white"
-                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                  ].join(" ")}
-                  // Clicking the selected value again clears it.
-                  onClick={() =>
-                    isActive ? onClear() : onSet(meters, "below")
-                  }
-                >
-                  {meters}
-                </button>
-              );
-            })}
-          </div>
+          <ToggleGroup
+            aria-label="Handicap"
+            spacing={1.5}
+            value={active ? [String(active.meters)] : []}
+            onValueChange={([next]) =>
+              next === undefined ? onClear() : onSet(Number(next), "below")
+            }
+          >
+            {HANDICAP_PRESETS.map((meters) => (
+              <ToggleGroupItem
+                key={meters}
+                value={String(meters)}
+                className="h-8 min-w-0 px-1.5 rounded-md font-display text-sm font-bold tabular-nums bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground aria-pressed:bg-(--tf-accent) aria-pressed:text-white aria-pressed:hover:bg-(--tf-accent) aria-pressed:hover:text-white"
+              >
+                {meters}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
       );
     }
@@ -1043,30 +1053,31 @@ function ContextMenu({
           <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Trend
           </p>
-          <div className="flex items-center gap-1.5">
+          <ToggleGroup
+            aria-label="Trend"
+            spacing={1.5}
+            value={active ? [active] : []}
+            onValueChange={([next]) => onSelect((next as Trend) ?? null)}
+          >
             {TRENDS.map(({ value, label }) => {
-              const isActive = active === value;
               const Icon = value === "up" ? TrendingUp : TrendingDown;
               return (
-                <button
+                <ToggleGroupItem
                   key={value}
+                  value={value}
                   className={[
-                    "h-8 px-2 rounded-md flex items-center gap-1.5 font-display text-sm font-bold",
-                    isActive
-                      ? value === "up"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-red-600 text-white"
-                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    "h-8 px-2 gap-1.5 rounded-md font-display text-sm font-bold bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground aria-pressed:text-white aria-pressed:hover:text-white",
+                    value === "up"
+                      ? "aria-pressed:bg-emerald-600 aria-pressed:hover:bg-emerald-600"
+                      : "aria-pressed:bg-red-600 aria-pressed:hover:bg-red-600",
                   ].join(" ")}
-                  // Clicking the selected trend again clears it.
-                  onClick={() => onSelect(isActive ? null : value)}
                 >
                   <Icon className="size-4" strokeWidth={2.5} />
                   {label}
-                </button>
+                </ToggleGroupItem>
               );
             })}
-          </div>
+          </ToggleGroup>
         </div>
       );
     }
