@@ -4,14 +4,20 @@ import { CELL_COLORS, migrateCellColors } from "../config/cellColors";
 import { CELL_EMOJIS } from "../config/cellEmojis";
 import type { TableTemplate } from "../config/templates";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { badgeVariants } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -142,12 +148,6 @@ function colLabel(index: number): string {
 
 const DISTANCES: readonly Distance[] = ["S", "M", "L", "ST"];
 const START_METHODS: readonly StartMethod[] = ["A", "V"];
-
-// Cycles a value through a fixed list; direction -1 goes backward, +1 forward.
-function cycleValue<T>(values: readonly T[], current: T, direction: -1 | 1): T {
-  const idx = values.indexOf(current);
-  return values[(idx + direction + values.length) % values.length];
-}
 
 function makeRow(height = 36): Row {
   return { id: uid(), height };
@@ -431,25 +431,14 @@ export function TableEditor({
   // ── Column operations ─────────────────────────────────────────────────────
   // Columns are fixed by the template (one per race) — no add or delete.
 
-  const cycleDistance = (colId: string, direction: -1 | 1) =>
+  const setColumnDistance = (colId: string, distance: Distance) =>
     setColumns((prev) =>
-      prev.map((c) =>
-        c.id === colId
-          ? { ...c, distance: cycleValue(DISTANCES, c.distance, direction) }
-          : c,
-      ),
+      prev.map((c) => (c.id === colId ? { ...c, distance } : c)),
     );
 
-  const cycleStartMethod = (colId: string, direction: -1 | 1) =>
+  const setColumnStartMethod = (colId: string, startMethod: StartMethod) =>
     setColumns((prev) =>
-      prev.map((c) =>
-        c.id === colId
-          ? {
-              ...c,
-              startMethod: cycleValue(START_METHODS, c.startMethod, direction),
-            }
-          : c,
-      ),
+      prev.map((c) => (c.id === colId ? { ...c, startMethod } : c)),
     );
 
   // ── Row operations ────────────────────────────────────────────────────────
@@ -533,48 +522,24 @@ export function TableEditor({
               className="relative shrink-0 bg-(--tf-soft) border-r border-(--tf-border) print:border-r-0 group"
               style={{ width: col.width, height: 38 }}
             >
-              <div className="flex items-center justify-center gap-1 h-full px-2 font-display text-sm font-bold tracking-tight text-muted-foreground select-none">
-                <span className="truncate">{col.name || colLabel(ci)}</span>
-                <Badge
-                  variant="secondary"
-                  render={
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        cycleDistance(col.id, 1);
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        cycleDistance(col.id, -1);
-                      }}
-                    />
-                  }
-                  className="rounded-[5px] size-8 sm:size-7 shrink-0 justify-center font-display font-bold bg-(--tf-accent) text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.18)] transition-transform hover:scale-105 active:scale-95 active:shadow-none"
-                >
-                  {col.distance}
-                </Badge>
-                <Badge
-                  variant="secondary"
-                  render={
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        cycleStartMethod(col.id, 1);
-                      }}
-                      onContextMenu={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        cycleStartMethod(col.id, -1);
-                      }}
-                    />
-                  }
-                  className="rounded-[5px] size-8 sm:size-7 shrink-0 justify-center font-display font-bold bg-(--tf-accent) text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.18)] transition-transform hover:scale-105 active:scale-95 active:shadow-none"
-                >
-                  {col.startMethod}
-                </Badge>
+              <div className="flex items-center justify-between gap-2 h-full px-2 font-display text-sm font-bold tracking-tight text-white select-none">
+                <span className="min-w-0 truncate">
+                  {col.name || colLabel(ci)}
+                </span>
+                <div className="flex shrink-0 items-center gap-1">
+                  <HeaderValuePicker
+                    label="Distans"
+                    value={col.distance}
+                    options={DISTANCES}
+                    onSelect={(d) => setColumnDistance(col.id, d)}
+                  />
+                  <HeaderValuePicker
+                    label="Startmetod"
+                    value={col.startMethod}
+                    options={START_METHODS}
+                    onSelect={(m) => setColumnStartMethod(col.id, m)}
+                  />
+                </div>
               </div>
             </div>
           ))}
@@ -593,7 +558,7 @@ export function TableEditor({
                 scrolling a wide table on mobile. */}
             <div
               className={[
-                "sticky left-0 z-20 shrink-0 flex items-center justify-center border-r border-(--tf-border) print:static print:border-r-0 font-display text-xs font-bold tabular-nums text-muted-foreground select-none cursor-default transition-colors",
+                "sticky left-0 z-20 shrink-0 flex items-center justify-center border-r border-(--tf-border) print:static print:border-r-0 font-display text-xs font-bold tabular-nums text-white select-none cursor-default transition-colors",
                 hoveredRowId === row.id
                   ? "bg-(--tf-accent)/15"
                   : "bg-(--tf-soft)",
@@ -867,6 +832,57 @@ const TableCell = memo(function TableCell({
     </div>
   );
 });
+
+// A column header badge that opens a short list of its possible values,
+// with the current one checked.
+function HeaderValuePicker<T extends string>({
+  label,
+  value,
+  options,
+  onSelect,
+}: {
+  label: string;
+  value: T;
+  options: readonly T[];
+  onSelect: (value: T) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`${label}: ${value}`}
+        title={label}
+        className={cn(
+          badgeVariants({ variant: "secondary" }),
+          // Hover darkens the badge and press nudges it down onto its
+          // bottom edge; nothing scales, so the letter stays the same size.
+          "rounded-[5px] size-8 sm:size-7 shrink-0 justify-center cursor-pointer font-display font-bold bg-(--tf-accent) text-white shadow-[inset_0_-2px_0_rgba(0,0,0,0.18)] transition-[filter,box-shadow,translate] duration-150 hover:brightness-90 active:translate-y-px active:shadow-none data-popup-open:brightness-90 data-popup-open:ring-2 data-popup-open:ring-(--tf-accent)/35",
+        )}
+      >
+        {value}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="center" className="w-auto min-w-28">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{label}</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={value}
+            onValueChange={(v) => onSelect(v as T)}
+          >
+            {options.map((o) => (
+              <DropdownMenuRadioItem
+                key={o}
+                value={o}
+                closeOnClick
+                className="font-display font-bold"
+              >
+                {o}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 function ContextMenu({
   anchor,
