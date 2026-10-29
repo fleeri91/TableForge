@@ -20,6 +20,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
+import { Switch } from "@/components/ui/switch";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -464,29 +472,18 @@ export function TableEditor({
     [],
   );
 
-  // The desktop dropdown handles Escape and outside clicks itself; this
-  // covers Escape for the mobile sheet, whose backdrop handles taps.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setCtxMenu(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   // ── Render ────────────────────────────────────────────────────────────────
 
+  // The game-color variables. The cell menu renders in a portal outside this
+  // tree, so it gets them passed in too.
+  const accentVars = {
+    "--tf-accent": accentColor,
+    "--tf-soft": accentSoft,
+    "--tf-border": accentBorder,
+  } as React.CSSProperties;
+
   return (
-    <div
-      className="relative min-w-0 max-w-full"
-      style={
-        {
-          "--tf-accent": accentColor,
-          "--tf-soft": accentSoft,
-          "--tf-border": accentBorder,
-        } as React.CSSProperties
-      }
-    >
+    <div className="relative min-w-0 max-w-full" style={accentVars}>
       {/* The table scrolls horizontally on itself (rather than relying on
           the page-level scroll container) specifically so the sticky row-
           number column below has a well-defined scroll ancestor to stick
@@ -620,6 +617,7 @@ export function TableEditor({
       {ctxMenu && (
         <ContextMenu
           anchor={ctxMenu.anchor}
+          accentVars={accentVars}
           onClose={() => setCtxMenu(null)}
           items={[
             {
@@ -886,10 +884,12 @@ function HeaderValuePicker<T extends string>({
 
 function ContextMenu({
   anchor,
+  accentVars,
   onClose,
   items,
 }: {
   anchor: HTMLElement;
+  accentVars: React.CSSProperties;
   onClose: () => void;
   items: MenuItem[];
 }) {
@@ -903,18 +903,6 @@ function ContextMenu({
   // a menu, so toggles, actions and dividers render as plain controls there
   // and as DropdownMenu items on desktop; the picker sections are the same
   // in both.
-
-  // Locks background scroll while the mobile sheet is open, like a modal —
-  // otherwise a drag on the sheet's own scroll area can also pan the table
-  // underneath it.
-  useEffect(() => {
-    if (!isMobile) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [isMobile]);
 
   const locked = items.some(
     (item) => item.toggle?.locksMenu && item.toggle.checked,
@@ -1114,29 +1102,17 @@ function ContextMenu({
         );
       }
       return (
-        <button
+        <label
           key={i}
-          type="button"
-          role="switch"
-          aria-checked={checked}
-          className="w-full h-10 sm:h-8 flex items-center justify-between gap-3 px-3 text-left hover:bg-accent"
-          onClick={onToggle}
+          className="w-full h-10 flex items-center justify-between gap-3 px-3 cursor-pointer hover:bg-accent"
         >
           <span>{label}</span>
-          <span
-            className={[
-              "relative h-4.5 w-8 shrink-0 rounded-full",
-              checked ? "bg-(--tf-accent)" : "bg-muted-foreground/30",
-            ].join(" ")}
-          >
-            <span
-              className={[
-                "absolute top-0.5 size-3.5 rounded-full bg-white shadow-sm",
-                checked ? "left-4" : "left-0.5",
-              ].join(" ")}
-            />
-          </span>
-        </button>
+          <Switch
+            checked={checked}
+            onCheckedChange={onToggle}
+            className="data-checked:bg-(--tf-accent)"
+          />
+        </label>
       );
     }
 
@@ -1203,41 +1179,38 @@ function ContextMenu({
   });
 
   if (isMobile) {
+    // The Drawer brings the backdrop, swipe-down and Escape to close, focus
+    // handling and scroll locking. It's capped below the full viewport
+    // height so the header (with its close button) and a strip of backdrop
+    // always stay on screen; the options scroll inside it instead.
     return (
-      <>
-        {/* Backdrop — dims the table and doubles as a large tap-to-close
-            target, standard for a bottom-sheet-style modal. */}
-        <div
-          className="fixed inset-0 z-50 bg-black/50 animate-in fade-in duration-150"
-          onClick={onClose}
-        />
-        {/* Capped below the full viewport height so the header (with its
-            close button) and a strip of backdrop always stay on screen; the
-            options scroll inside the sheet instead of pushing it off the top. */}
-        <div
-          className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t-[3px] border-t-(--tf-accent) bg-popover text-popover-foreground shadow-2xl animate-in slide-in-from-bottom duration-200"
-          onClick={(e) => e.stopPropagation()}
+      <Drawer
+        open
+        showSwipeHandle
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
+      >
+        <DrawerContent
+          className="rounded-t-2xl border-t-[3px] border-t-(--tf-accent) shadow-2xl"
+          style={accentVars}
         >
-          <div className="flex shrink-0 justify-center pt-2" aria-hidden>
-            <span className="h-1 w-9 rounded-full bg-border" />
-          </div>
-          <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-2.5">
-            <span className="font-display text-base font-bold tracking-tight text-foreground">
+          <DrawerHeader className="flex-row items-center justify-between border-b border-border px-4 py-2.5">
+            <DrawerTitle className="font-display text-base font-bold tracking-tight">
               Cellalternativ
-            </span>
-            <button
-              onClick={onClose}
+            </DrawerTitle>
+            <DrawerClose
               className="-mr-1.5 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label="Stäng"
             >
               <X className="size-4" />
-            </button>
-          </div>
+            </DrawerClose>
+          </DrawerHeader>
           <div className="min-h-0 overflow-y-auto overscroll-contain pb-[max(env(safe-area-inset-bottom),0.375rem)]">
             {content}
           </div>
-        </div>
-      </>
+        </DrawerContent>
+      </Drawer>
     );
   }
 
@@ -1257,6 +1230,7 @@ function ContextMenu({
         align="start"
         collisionPadding={8}
         className="w-auto min-w-50 overscroll-contain rounded-xl border border-border border-t-[3px] border-t-(--tf-accent) px-0 py-1.5 shadow-2xl"
+        style={accentVars}
       >
         {content}
       </DropdownMenuContent>
