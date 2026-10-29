@@ -1,4 +1,4 @@
-import { CELL_COLORS } from "../config/cellColors";
+import { SHARE_COLOR_ORDER } from "../config/cellColors";
 
 // ── Share links ─────────────────────────────────────────────────────────────
 // A shared table travels entirely inside the URL fragment (`#t=…`), so
@@ -122,7 +122,7 @@ function toWire(templateId: string, snap: Snapshot): WireTable {
     c: columns.map((c) => [c.name, c.width, c.distance, c.startMethod]),
     r: rows.map((r) => r.height),
     k: remap(snap.cellColors, (v) => {
-      const i = CELL_COLORS.findIndex((c) => c.value === v);
+      const i = SHARE_COLOR_ORDER.indexOf(v);
       return i >= 0 ? i : v;
     }),
     e: remap(snap.cellEmojis, (v) => v),
@@ -182,7 +182,7 @@ function fromWire(w: WireTable): SharedTable {
       columns,
       rows,
       cellColors: remap(w.k, (v) =>
-        typeof v === "number" ? CELL_COLORS[v]?.value ?? "" : v,
+        typeof v === "number" ? (SHARE_COLOR_ORDER[v] ?? "") : v,
       ),
       cellEmojis: remap(w.e, (v) => v),
       cellDisabled: flags(w.d),

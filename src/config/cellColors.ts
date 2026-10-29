@@ -3,19 +3,29 @@
 // Lightness and hue match the original palette; only the chroma (the middle
 // value) is lowered, so the colors read as less saturated, not darker.
 
+const RED = "oklch(70.4% 0.12 22.216)";
+const YELLOW = "oklch(90.5% 0.116 98.111)";
+const BLUE = "oklch(70.7% 0.1 254.624)";
+const GREEN = "oklch(79.2% 0.13 151.711)";
+
+// In the order the color picker shows them.
 export const CELL_COLORS: { label: string; value: string }[] = [
-  { label: "Röd", value: "oklch(70.4% 0.12 22.216)" },
-  { label: "Gul", value: "oklch(90.5% 0.116 98.111)" },
-  { label: "Blå", value: "oklch(70.7% 0.1 254.624)" },
-  { label: "Grön", value: "oklch(79.2% 0.13 151.711)" },
+  { label: "Grön", value: GREEN },
+  { label: "Blå", value: BLUE },
+  { label: "Gul", value: YELLOW },
+  { label: "Röd", value: RED },
 ];
 
+// Share links store a color by its index in this list, so its order is
+// fixed regardless of how the picker orders CELL_COLORS. Only ever append.
+export const SHARE_COLOR_ORDER: readonly string[] = [RED, YELLOW, BLUE, GREEN];
+
 // Briefly-used Radix tints, from before the palette went back to oklch.
-const LEGACY_VARS: Record<string, number> = {
-  "var(--red-5)": 0,
-  "var(--yellow-5)": 1,
-  "var(--blue-5)": 2,
-  "var(--green-5)": 3,
+const LEGACY_VARS: Record<string, string> = {
+  "var(--red-5)": RED,
+  "var(--yellow-5)": YELLOW,
+  "var(--blue-5)": BLUE,
+  "var(--green-5)": GREEN,
 };
 
 // Saves store the raw color value, so tweaking a chroma above would leave
@@ -35,8 +45,8 @@ export function migrateCellColors(
 ): Record<string, string> {
   return Object.fromEntries(
     Object.entries(colors).map(([k, v]) => {
-      const legacyIdx = LEGACY_VARS[v];
-      if (legacyIdx !== undefined) return [k, CELL_COLORS[legacyIdx].value];
+      const legacy = LEGACY_VARS[v];
+      if (legacy !== undefined) return [k, legacy];
       return [k, BY_LIGHTNESS_HUE.get(oklchKey(v)) ?? v];
     }),
   );

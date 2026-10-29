@@ -7,25 +7,17 @@
    greek-ext and vietnamese subsets the UI never uses — trimming well over
    100KB of woff2 files that would otherwise ship in the build.
 
-   Archivo (grotesk, slightly industrial) is the body/UI face; Big Shoulders
-   Text — drawn for the Chicago skyline sign lettering, and metrics-tuned for
-   small sizes rather than its poster-scale "Display" sibling — is reserved
-   for numerals, labels and headings, giving the whole app the compressed,
-   high-contrast rhythm of a tote board or a race-day form guide. */
+   Inter is the single face for the whole UI. It was drawn for screens,
+   stays legible at the small sizes the table uses (labels, codes, row
+   numbers), has equal-width digits for `tabular-nums`, and keeps 1, l and I
+   distinct. Headings and labels use it too, through the --font-display
+   token, at heavier weights. */
 @font-face {
-  font-family: "Archivo Variable";
+  font-family: "Inter Variable";
   font-style: normal;
   font-display: swap;
   font-weight: 100 900;
-  src: url("@fontsource-variable/archivo/files/archivo-latin-wght-normal.woff2") format("woff2-variations");
-  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
-}
-@font-face {
-  font-family: "Big Shoulders Text Variable";
-  font-style: normal;
-  font-display: swap;
-  font-weight: 100 900;
-  src: url("@fontsource-variable/big-shoulders-text/files/big-shoulders-text-latin-wght-normal.woff2") format("woff2-variations");
+  src: url("@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2-variations");
   unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
 }
 
@@ -69,8 +61,8 @@
 
 @theme inline {
   --font-heading: var(--font-display);
-  --font-display: "Big Shoulders Text Variable", "Arial Narrow", sans-serif;
-  --font-sans: "Archivo Variable", ui-sans-serif, sans-serif;
+  --font-display: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
