@@ -112,6 +112,8 @@ interface MenuItem {
     label: string;
     checked: boolean;
     onToggle: () => void;
+    // While checked, every other item in the menu is disabled.
+    locksMenu?: boolean;
   };
 }
 
@@ -715,6 +717,7 @@ export function TableEditor({
                 checked: isCellDisabled(ctxMenu.rowId, ctxMenu.colId),
                 onToggle: () =>
                   toggleCellDisabled(ctxMenu.rowId, ctxMenu.colId),
+                locksMenu: true,
               },
             },
             { divider: true },
@@ -909,7 +912,11 @@ function ContextMenu({
     };
   }, [isMobile]);
 
-  const content = items.map((item, i) => {
+  const locked = items.some(
+    (item) => item.toggle?.locksMenu && item.toggle.checked,
+  );
+
+  const renderItem = (item: MenuItem, i: number, isLocked: boolean) => {
     if (item.colorPicker) {
       const { active, onSelect } = item.colorPicker;
       return (
@@ -1094,6 +1101,7 @@ function ContextMenu({
             key={i}
             checked={checked}
             onCheckedChange={onToggle}
+            disabled={isLocked}
             className="mx-1 h-8 pl-2"
           >
             {label}
@@ -1140,7 +1148,7 @@ function ContextMenu({
         <DropdownMenuItem
           key={i}
           variant={item.danger ? "destructive" : "default"}
-          disabled={item.disabled}
+          disabled={item.disabled || isLocked}
           // Deleting this cell's row closes the menu on its own (the parent
           // clears ctxMenu); everything else keeps it open.
           closeOnClick={false}
@@ -1171,6 +1179,21 @@ function ContextMenu({
       >
         {item.label}
       </Button>
+    );
+  };
+
+  // Locked items are also wrapped in an inert, dimmed container so the
+  // picker sections' plain buttons (and the mobile sheet's controls) can't
+  // be clicked or focused either.
+  const content = items.map((item, i) => {
+    const isLocked = locked && !item.toggle?.locksMenu && !item.divider;
+    const el = renderItem(item, i, isLocked);
+    return isLocked ? (
+      <div key={i} inert className="opacity-50">
+        {el}
+      </div>
+    ) : (
+      el
     );
   });
 
