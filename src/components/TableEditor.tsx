@@ -118,10 +118,6 @@ interface MenuItem {
 }
 
 const HANDICAP_PRESETS = [20, 40, 60, 80];
-const HANDICAP_POSITION_LABELS: Record<HandicapPosition, string> = {
-  above: "Över",
-  below: "Under",
-};
 const TRENDS: { value: Trend; label: string }[] = [
   { value: "up", label: "Uppåt" },
   { value: "down", label: "Nedåt" },
@@ -457,16 +453,8 @@ export function TableEditor({
   // Rows cap at MAX_ROWS (the largest a template ever starts with) — adding
   // is only ever "restoring" capacity freed up by a previous delete.
 
-  const addRow = (afterIdx?: number) => {
-    setRows((prev) => {
-      if (prev.length >= MAX_ROWS) return prev;
-      const idx = afterIdx !== undefined ? afterIdx + 1 : prev.length;
-      const row = makeRow();
-      const next = [...prev];
-      next.splice(idx, 0, row);
-      return next;
-    });
-  };
+  const addRow = () =>
+    setRows((prev) => (prev.length >= MAX_ROWS ? prev : [...prev, makeRow()]));
 
   const deleteRow = (rowId: string) => {
     if (rows.length <= 1) return;
@@ -683,34 +671,7 @@ export function TableEditor({
                   toggleCellTopPick(ctxMenu.rowId, ctxMenu.colId, emoji),
               },
             },
-            {
-              handicapPicker: {
-                active: getCellHandicap(ctxMenu.rowId, ctxMenu.colId),
-                onSet: (meters, position) =>
-                  setCellHandicap(
-                    ctxMenu.rowId,
-                    ctxMenu.colId,
-                    meters,
-                    position,
-                  ),
-                onClear: () => clearCellHandicap(ctxMenu.rowId, ctxMenu.colId),
-              },
-            },
-            {
-              trendPicker: {
-                active: getCellTrend(ctxMenu.rowId, ctxMenu.colId),
-                onSelect: (trend) =>
-                  setCellTrend(ctxMenu.rowId, ctxMenu.colId, trend),
-              },
-            },
             { divider: true },
-            {
-              toggle: {
-                label: "Stjärnkusk",
-                checked: isCellElite(ctxMenu.rowId, ctxMenu.colId),
-                onToggle: () => toggleCellElite(ctxMenu.rowId, ctxMenu.colId),
-              },
-            },
             {
               toggle: {
                 label: "Struken",
@@ -722,17 +683,41 @@ export function TableEditor({
             },
             { divider: true },
             {
-              label: "Infoga rad ovanför",
-              onClick: () =>
-                addRow(rows.findIndex((r) => r.id === ctxMenu.rowId) - 1),
-              disabled: rows.length >= MAX_ROWS,
+              toggle: {
+                label: "Stjärnkusk",
+                checked: isCellElite(ctxMenu.rowId, ctxMenu.colId),
+                onToggle: () => toggleCellElite(ctxMenu.rowId, ctxMenu.colId),
+              },
             },
+            { divider: true },
+            // The handicap badge sits below the cell, so the last row has
+            // no room for one.
+            ...(rows[rows.length - 1]?.id === ctxMenu.rowId
+              ? []
+              : [
+                  {
+                    handicapPicker: {
+                      active: getCellHandicap(ctxMenu.rowId, ctxMenu.colId),
+                      onSet: (meters: number, position: HandicapPosition) =>
+                        setCellHandicap(
+                          ctxMenu.rowId,
+                          ctxMenu.colId,
+                          meters,
+                          position,
+                        ),
+                      onClear: () =>
+                        clearCellHandicap(ctxMenu.rowId, ctxMenu.colId),
+                    },
+                  },
+                ]),
             {
-              label: "Infoga rad nedanför",
-              onClick: () =>
-                addRow(rows.findIndex((r) => r.id === ctxMenu.rowId)),
-              disabled: rows.length >= MAX_ROWS,
+              trendPicker: {
+                active: getCellTrend(ctxMenu.rowId, ctxMenu.colId),
+                onSelect: (trend) =>
+                  setCellTrend(ctxMenu.rowId, ctxMenu.colId, trend),
+              },
             },
+            { divider: true },
             {
               label: "Radera rad",
               onClick: () => deleteRow(ctxMenu.rowId),
@@ -1023,37 +1008,30 @@ function ContextMenu({
           <p className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Handicap
           </p>
-          {(["above", "below"] as const).map((position) => (
-            <div
-              key={position}
-              className="flex items-center gap-1.5 mb-1.5 last:mb-0"
-            >
-              <span className="w-11 shrink-0 text-xs text-muted-foreground">
-                {HANDICAP_POSITION_LABELS[position]}
-              </span>
-              {HANDICAP_PRESETS.map((meters) => {
-                const isActive =
-                  active?.position === position && active.meters === meters;
-                return (
-                  <button
-                    key={meters}
-                    className={[
-                      "h-8 px-1.5 rounded-md font-display text-sm font-bold tabular-nums",
-                      isActive
-                        ? "bg-(--tf-accent) text-white"
-                        : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                    ].join(" ")}
-                    // Clicking the selected value again clears it.
-                    onClick={() =>
-                      isActive ? onClear() : onSet(meters, position)
-                    }
-                  >
-                    {meters}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
+          {/* New handicaps always go below the cell; older saves may still
+              hold "above" ones, which keep rendering where they were. */}
+          <div className="flex items-center gap-1.5">
+            {HANDICAP_PRESETS.map((meters) => {
+              const isActive = active?.meters === meters;
+              return (
+                <button
+                  key={meters}
+                  className={[
+                    "h-8 px-1.5 rounded-md font-display text-sm font-bold tabular-nums",
+                    isActive
+                      ? "bg-(--tf-accent) text-white"
+                      : "bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  ].join(" ")}
+                  // Clicking the selected value again clears it.
+                  onClick={() =>
+                    isActive ? onClear() : onSet(meters, "below")
+                  }
+                >
+                  {meters}
+                </button>
+              );
+            })}
+          </div>
         </div>
       );
     }
