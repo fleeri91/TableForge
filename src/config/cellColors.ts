@@ -3,10 +3,10 @@
 // Lightness and hue match the original palette; only the chroma (the middle
 // value) is lowered, so the colors read as less saturated, not darker.
 
-const RED = "oklch(70.4% 0.12 22.216)";
-const YELLOW = "oklch(90.5% 0.116 98.111)";
-const BLUE = "oklch(70.7% 0.1 254.624)";
-const GREEN = "oklch(79.2% 0.13 151.711)";
+export const RED = "oklch(70.4% 0.12 22.216)";
+export const YELLOW = "oklch(90.5% 0.116 98.111)";
+export const BLUE = "oklch(70.7% 0.1 254.624)";
+export const GREEN = "oklch(79.2% 0.13 151.711)";
 
 // In the order the color picker shows them.
 export const CELL_COLORS: { label: string; value: string }[] = [

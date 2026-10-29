@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Link } from 'lucide-react';
+import { Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Link, Trophy } from 'lucide-react';
 import { toast } from 'sonner';
 import { TableEditor } from './components/TableEditor';
+import { RankingView } from './components/RankingView';
 import { TABLE_TEMPLATES, type TableTemplate } from './config/templates';
 import { getGameTypeColor } from './config/gameTypes';
 import { decodeShare, encodeShare, readShareToken, shareUrl } from './lib/share';
@@ -88,6 +89,10 @@ export function App() {
   // Kept after the dialog closes so its text doesn't blank mid-animation.
   const [pendingDelete, setPendingDelete] = useState<SavedTable | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // The ranking view, tied to the table it was opened for: switching
+  // template, loading a save or resetting changes the key and so drops back
+  // to that table instead of showing a stale ranking.
+  const [ranking, setRanking] = useState<{ tableKey: string; snapshot: Record<string, unknown> | null } | null>(null);
   const [started, setStarted] = useState(false);
   const [sharedSnapshot, setSharedSnapshot] = useState<Record<string, unknown> | null>(null);
   const [sharePending, setSharePending] = useState(() => readShareToken() !== null);
@@ -226,6 +231,9 @@ export function App() {
   const storageKey = activeSave
     ? draftKeyForSave(activeSave.id)
     : activeSlot.kind === 'shared' ? SHARED_KEY : draftKey;
+
+  const tableKey = `${storageKey}-${resetCount}`;
+  const showRanking = ranking?.tableKey === tableKey;
 
   // Leaving a shared table drops its link from the address bar, so a reload
   // doesn't pull it back up over whatever was opened instead.
@@ -516,6 +524,18 @@ export function App() {
               </ToolbarTooltip>
             </ButtonGroup>
 
+            <Button
+              variant={showRanking ? 'secondary' : 'outline'}
+              className="h-9 sm:h-8 shrink-0"
+              aria-pressed={showRanking}
+              onClick={() =>
+                setRanking(showRanking ? null : { tableKey, snapshot: snapshotRef.current })
+              }
+            >
+              <Trophy />
+              Ranking
+            </Button>
+
             <Badge variant="outline" className="hidden lg:inline-flex ml-1 text-muted-foreground font-normal shrink-0">
               Tryck på en cell för alternativ
             </Badge>
@@ -540,16 +560,28 @@ export function App() {
 
         {/* Canvas */}
         <main data-scroll-hide className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6 md:p-12 flex items-start justify-center print:p-0 print:overflow-visible print:h-auto">
-          <TableEditor
-            key={`${storageKey}-${resetCount}`}
-            template={template}
-            storageKey={storageKey}
-            initialSnapshot={activeSlot.kind === 'shared' ? sharedSnapshot : null}
-            snapshotRef={snapshotRef}
-            accentColor={getGameTypeColor(template.id)}
-            accentSoft={getGameTypeColor(template.id, 3)}
-            accentBorder={getGameTypeColor(template.id, 7)}
-          />
+          {showRanking && (
+            <RankingView
+              snapshot={ranking.snapshot}
+              accentColor={getGameTypeColor(template.id)}
+              onBack={() => setRanking(null)}
+            />
+          )}
+          {/* Hidden rather than unmounted while the ranking shows, so a
+              shared table's edits (which live only in this component's
+              state) survive the round trip. */}
+          <div className={showRanking ? 'hidden' : 'contents'}>
+            <TableEditor
+              key={tableKey}
+              template={template}
+              storageKey={storageKey}
+              initialSnapshot={activeSlot.kind === 'shared' ? sharedSnapshot : null}
+              snapshotRef={snapshotRef}
+              accentColor={getGameTypeColor(template.id)}
+              accentSoft={getGameTypeColor(template.id, 3)}
+              accentBorder={getGameTypeColor(template.id, 7)}
+            />
+          </div>
         </main>
 
         <AlertDialog open={resetOpen} onOpenChange={setResetOpen}>
