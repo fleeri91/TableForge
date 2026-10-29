@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Star } from "lucide-react";
 import { CELL_COLORS } from "../config/cellColors";
 import { POINTS, rankRaces } from "../lib/ranking";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,8 @@ export function RankingView({
           Tillbaka till tabellen
         </Button>
         <p className="text-xs text-muted-foreground">
-          Emoji {POINTS.perEmoji} p · Toppval {POINTS.topPick} p · Färg{" "}
+          Emoji {POINTS.perEmoji} p · Toppval {POINTS.topPick} p · Stjärnkusk{" "}
+          {POINTS.elite} p · Färg{" "}
           {CELL_COLORS.map(
             (c) => `${c.label} ${POINTS.color[c.value] ?? 0}`,
           ).join(" / ")}
@@ -99,6 +100,13 @@ export function RankingView({
                     <span className="w-12 shrink-0 font-medium tabular-nums text-foreground">
                       Nr {h.number}
                     </span>
+                    {h.elite && (
+                      <Star
+                        className="-ml-1 size-3.5 shrink-0 fill-amber-400 text-amber-400"
+                        strokeWidth={0}
+                        aria-label="Stjärnkusk"
+                      />
+                    )}
                     <span className="flex min-w-0 flex-1 flex-wrap gap-1 text-base leading-none">
                       {h.emojis.map((e) => (
                         <span

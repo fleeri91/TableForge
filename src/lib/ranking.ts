@@ -8,6 +8,7 @@ import { BLUE, GREEN, RED, YELLOW } from "../config/cellColors";
 export const POINTS = {
   perEmoji: 2,
   topPick: 3,
+  elite: 2,
   color: { [GREEN]: 3, [BLUE]: 2, [YELLOW]: 1, [RED]: 0 } as Record<
     string,
     number
@@ -26,6 +27,7 @@ interface RankingSnapshot {
   cellColors?: Record<string, string>;
   cellEmojis?: Record<string, string[]>;
   cellDisabled?: Record<string, boolean>;
+  cellElite?: Record<string, boolean>;
   // Column id → emoji → row id
   columnTopPicks?: Record<string, Record<string, string>>;
 }
@@ -39,6 +41,7 @@ export interface RankedHorse {
   emojis: string[];
   topPicks: string[];
   color: string | null;
+  elite: boolean;
 }
 
 export interface RankedRace {
@@ -65,13 +68,15 @@ export function rankRaces(
       const emojis = snap.cellEmojis?.[key] ?? [];
       const topPicks = Object.keys(picks).filter((e) => picks[e] === row.id);
       const color = snap.cellColors?.[key] ?? null;
+      const elite = snap.cellElite?.[key] ?? false;
       const points =
         emojis.length * POINTS.perEmoji +
         (topPicks.length > 0 ? POINTS.topPick : 0) +
+        (elite ? POINTS.elite : 0) +
         (color !== null ? (POINTS.color[color] ?? 0) : 0);
       // "Marked" rather than points > 0, so a horse marked only red still
       // gets a place (at 0 points) above the ones nobody has looked at.
-      const marked = emojis.length > 0 || color !== null;
+      const marked = emojis.length > 0 || color !== null || elite;
       horses.push({
         number: ri + 1,
         points,
@@ -79,6 +84,7 @@ export function rankRaces(
         emojis,
         topPicks,
         color,
+        elite,
       });
     });
 
