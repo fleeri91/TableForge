@@ -429,13 +429,7 @@ export function TableEditor({
     });
 
   // ── Column operations ─────────────────────────────────────────────────────
-  // Columns are fixed by the template (one per race) — no add, only delete.
-
-  const deleteColumn = (colId: string) => {
-    if (columns.length <= 1) return;
-    setColumns((prev) => prev.filter((c) => c.id !== colId));
-    if (ctxMenu?.colId === colId) setCtxMenu(null);
-  };
+  // Columns are fixed by the template (one per race) — no add or delete.
 
   const cycleDistance = (colId: string, direction: -1 | 1) =>
     setColumns((prev) =>
@@ -723,7 +717,7 @@ export function TableEditor({
             },
             {
               toggle: {
-                label: "Inaktivera cell",
+                label: "Struken",
                 checked: isCellDisabled(ctxMenu.rowId, ctxMenu.colId),
                 onToggle: () =>
                   toggleCellDisabled(ctxMenu.rowId, ctxMenu.colId),
@@ -747,13 +741,6 @@ export function TableEditor({
               onClick: () => deleteRow(ctxMenu.rowId),
               danger: true,
               disabled: rows.length <= 1,
-            },
-            { divider: true },
-            {
-              label: "Radera kolumn",
-              onClick: () => deleteColumn(ctxMenu.colId),
-              danger: true,
-              disabled: columns.length <= 1,
             },
           ]}
         />
@@ -844,6 +831,15 @@ const TableCell = memo(function TableCell({
               <span data-emoji-glyph>{e}</span>
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Scratched marker */}
+      {isDisabled && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+          <span className="font-display text-xs font-bold tracking-widest text-foreground/80 whitespace-nowrap">
+            STRUKEN
+          </span>
         </div>
       )}
 
