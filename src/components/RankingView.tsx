@@ -23,7 +23,7 @@ export function RankingView({
 
   return (
     <div
-      className="w-full max-w-6xl flex flex-col gap-4 animate-in fade-in duration-300"
+      className="w-full max-w-[96rem] flex flex-col gap-4 animate-in fade-in duration-300"
       style={{ "--tf-accent": accentColor } as React.CSSProperties}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -40,7 +40,7 @@ export function RankingView({
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {races.map((race) => (
           <section
             key={race.id}
