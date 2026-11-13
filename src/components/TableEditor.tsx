@@ -404,11 +404,16 @@ export function TableEditor({
     cId: string,
     meters: number,
     position: HandicapPosition,
-  ) =>
+  ) => {
     setCellHandicaps((prev) => ({
       ...prev,
       [cellKey(rId, cId)]: { meters, position },
     }));
+    // Handicaps only exist in volt starts, so adding one makes the race volt.
+    setColumnStartMethod(cId, "V");
+  };
+  const columnHasHandicap = (cId: string) =>
+    rows.some((r) => cellKey(r.id, cId) in cellHandicaps);
   const clearCellHandicap = (rId: string, cId: string) =>
     setCellHandicaps((prev) => {
       const k = cellKey(rId, cId);
@@ -553,6 +558,9 @@ export function TableEditor({
                     value={col.startMethod}
                     options={START_METHODS}
                     onSelect={(m) => setColumnStartMethod(col.id, m)}
+                    // Auto start can't have handicaps — remove them first.
+                    disabledOptions={columnHasHandicap(col.id) ? ["A"] : undefined}
+                    disabledHint="Ta bort tilläggen för att välja autostart"
                   />
                 </div>
               </div>
@@ -879,12 +887,17 @@ function HeaderValuePicker<T extends string>({
   value,
   options,
   onSelect,
+  disabledOptions,
+  disabledHint,
 }: {
   label: string;
   value: T;
   options: readonly T[];
   onSelect: (value: T) => void;
+  disabledOptions?: readonly T[];
+  disabledHint?: string;
 }) {
+  const hasDisabled = options.some((o) => disabledOptions?.includes(o));
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -911,12 +924,18 @@ function HeaderValuePicker<T extends string>({
                 key={o}
                 value={o}
                 closeOnClick
+                disabled={disabledOptions?.includes(o)}
                 className="font-display font-bold"
               >
                 {o}
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
+          {hasDisabled && disabledHint && (
+            <p className="max-w-44 px-2 py-1.5 text-xs text-muted-foreground">
+              {disabledHint}
+            </p>
+          )}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
