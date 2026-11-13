@@ -186,6 +186,15 @@ function useIsMobile() {
 // stable prop across renders — letting TableCell's memo actually skip them.
 const EMPTY_EMOJIS: string[] = [];
 
+// Emojis always display in the order CELL_EMOJIS declares them, regardless of
+// the order they were added. Unknown emojis (e.g. removed from the config)
+// keep their relative order at the end.
+const EMOJI_ORDER = new Map(CELL_EMOJIS.map((e, i) => [e.value, i]));
+function sortEmojis(emojis: string[]): string[] {
+  const rank = (e: string) => EMOJI_ORDER.get(e) ?? Infinity;
+  return [...emojis].sort((a, b) => rank(a) - rank(b));
+}
+
 const ROW_NUM_W = 44;
 const MAX_ROWS = 15;
 const PERSIST_DEBOUNCE_MS = 400;
@@ -257,7 +266,12 @@ export function TableEditor({
     migrateCellColors((saved?.cellColors as Record<string, string>) ?? {}),
   );
   const [cellEmojis, setCellEmojis] = useState<Record<string, string[]>>(
-    () => (saved?.cellEmojis as Record<string, string[]>) ?? {},
+    () =>
+      Object.fromEntries(
+        Object.entries(
+          (saved?.cellEmojis as Record<string, string[]>) ?? {},
+        ).map(([k, v]) => [k, sortEmojis(v)]),
+      ),
   );
   const [cellDisabled, setCellDisabled] = useState<Record<string, boolean>>(
     () => (saved?.cellDisabled as Record<string, boolean>) ?? {},
@@ -362,7 +376,7 @@ export function TableEditor({
       const current = prev[k] ?? [];
       const next = current.includes(emoji)
         ? current.filter((e) => e !== emoji)
-        : [...current, emoji];
+        : sortEmojis([...current, emoji]);
       if (next.length === 0) {
         const { [k]: _, ...rest } = prev;
         return rest;
