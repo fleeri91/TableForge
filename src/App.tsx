@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Link, Trophy } from 'lucide-react';
+import { Save, FolderOpen, FileText, RotateCcw, Sun, Moon, Trash2, Link, Trophy, ClipboardPaste } from 'lucide-react';
 import { toast } from 'sonner';
 import { TableEditor } from './components/TableEditor';
 import { RankingView } from './components/RankingView';
@@ -86,6 +86,7 @@ export function App() {
   const [saveName, setSaveName] = useState('');
   // Destructive actions wait for confirmation in an AlertDialog.
   const [resetOpen, setResetOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   // Kept after the dialog closes so its text doesn't blank mid-animation.
   const [pendingDelete, setPendingDelete] = useState<SavedTable | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -536,6 +537,16 @@ export function App() {
               Ranking
             </Button>
 
+            <Button
+              variant="outline"
+              className="h-9 sm:h-8 shrink-0"
+              disabled={showRanking}
+              onClick={() => setImportOpen(true)}
+            >
+              <ClipboardPaste />
+              Importera färger
+            </Button>
+
             <Badge variant="outline" className="hidden lg:inline-flex ml-1 text-muted-foreground font-normal shrink-0">
               Tryck på en cell för alternativ
             </Badge>
@@ -580,6 +591,8 @@ export function App() {
               accentColor={getGameTypeColor(template.id)}
               accentSoft={getGameTypeColor(template.id, 3)}
               accentBorder={getGameTypeColor(template.id, 7)}
+              importOpen={importOpen}
+              onImportOpenChange={setImportOpen}
             />
           </div>
         </main>

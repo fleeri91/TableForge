@@ -3,6 +3,8 @@ import { Plus, Star, TrendingDown, TrendingUp, X } from "lucide-react";
 import { CELL_COLORS, migrateCellColors } from "../config/cellColors";
 import { CELL_EMOJIS } from "../config/cellEmojis";
 import type { TableTemplate } from "../config/templates";
+import type { ImportedStart } from "../lib/rankImport";
+import { RankImportDialog } from "./RankImportDialog";
 import { Button } from "@/components/ui/button";
 import { badgeVariants } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -220,6 +222,8 @@ export function TableEditor({
   accentColor = "var(--gray-9)",
   accentSoft = "var(--gray-3)",
   accentBorder = "var(--gray-7)",
+  importOpen = false,
+  onImportOpenChange = () => {},
 }: {
   template: TableTemplate;
   storageKey: string;
@@ -232,6 +236,10 @@ export function TableEditor({
   accentColor?: string;
   accentSoft?: string;
   accentBorder?: string;
+  // The rank import dialog — opened from the app toolbar, but rendered here
+  // since it writes into this table's state.
+  importOpen?: boolean;
+  onImportOpenChange?: (open: boolean) => void;
 }) {
   // Parsed once per mount and reused by every initializer below, instead of
   // re-parsing the same localStorage string once per field.
@@ -486,6 +494,40 @@ export function TableEditor({
       prev.map((c) => (c.id === colId ? { ...c, startMethod } : c)),
     );
 
+  // ── Rank import ───────────────────────────────────────────────────────────
+  // Start number N maps to the table's Nth row. Only the imported starts'
+  // cells change; the rest of the column keeps its colors.
+
+  // The race the import dialog has selected. After an import it moves on to
+  // the next race, so a whole card can be filled in one race after another.
+  const [importColId, setImportColId] = useState<string | null>(null);
+  const importColumn =
+    columns.find((c) => c.id === importColId) ?? columns[0] ?? null;
+
+  const importRanks = (
+    cId: string,
+    starts: ImportedStart[],
+    markScratched: boolean,
+  ) => {
+    const targets = starts.flatMap((s) => {
+      const row = rows[s.startNumber - 1];
+      return row ? [{ key: cellKey(row.id, cId), start: s }] : [];
+    });
+    setCellColors((prev) => {
+      const next = { ...prev };
+      for (const { key, start } of targets) next[key] = start.color;
+      return next;
+    });
+    if (markScratched) {
+      setCellDisabled((prev) => {
+        const next = { ...prev };
+        for (const { key, start } of targets)
+          if (start.scratched) next[key] = true;
+        return next;
+      });
+    }
+  };
+
   // ── Row operations ────────────────────────────────────────────────────────
   // Rows cap at MAX_ROWS (the largest a template ever starts with) — adding
   // is only ever "restoring" capacity freed up by a previous delete.
@@ -653,6 +695,23 @@ export function TableEditor({
           </div>
         )}
       </div>
+
+      {/* ── Rank import ── */}
+      <RankImportDialog
+        open={importOpen && importColumn !== null}
+        onOpenChange={onImportOpenChange}
+        races={columns.map((c, i) => ({ id: c.id, name: c.name || colLabel(i) }))}
+        raceId={importColumn?.id ?? ""}
+        onRaceChange={setImportColId}
+        rowCount={rows.length}
+        accentVars={accentVars}
+        onImport={(starts, markScratched) => {
+          if (!importColumn) return;
+          importRanks(importColumn.id, starts, markScratched);
+          const next = columns[columns.indexOf(importColumn) + 1];
+          if (next) setImportColId(next.id);
+        }}
+      />
 
       {/* ── Context Menu ── */}
       {ctxMenu && (
