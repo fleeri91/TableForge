@@ -7,4 +7,6 @@ export const CELL_EMOJIS: { label: string; value: string }[] = [
   { label: "Häst", value: "🐎" },
   { label: "Robot", value: "🤖" },
   { label: "Penna", value: "🖊️" },
+  { label: "Norge", value: "🇳🇴" },
+  { label: "Danmark", value: "🇩🇰" },
 ];
