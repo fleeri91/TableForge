@@ -3,8 +3,7 @@ import { Plus, Star, TrendingDown, TrendingUp, X } from "lucide-react";
 import { CELL_COLORS, migrateCellColors } from "../config/cellColors";
 import { CELL_EMOJIS } from "../config/cellEmojis";
 import type { TableTemplate } from "../config/templates";
-import type { ImportedStart } from "../lib/rankImport";
-import { RankImportDialog } from "./RankImportDialog";
+import { RankImportDialog, type RaceImport } from "./RankImportDialog";
 import { Button } from "@/components/ui/button";
 import { badgeVariants } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -504,15 +503,13 @@ export function TableEditor({
   const importColumn =
     columns.find((c) => c.id === importColId) ?? columns[0] ?? null;
 
-  const importRanks = (
-    cId: string,
-    starts: ImportedStart[],
-    markScratched: boolean,
-  ) => {
-    const targets = starts.flatMap((s) => {
-      const row = rows[s.startNumber - 1];
-      return row ? [{ key: cellKey(row.id, cId), start: s }] : [];
-    });
+  const importRanks = (imports: RaceImport[], markScratched: boolean) => {
+    const targets = imports.flatMap(({ raceId, starts }) =>
+      starts.flatMap((s) => {
+        const row = rows[s.startNumber - 1];
+        return row ? [{ key: cellKey(row.id, raceId), start: s }] : [];
+      }),
+    );
     setCellColors((prev) => {
       const next = { ...prev };
       for (const { key, start } of targets) next[key] = start.color;
@@ -705,11 +702,14 @@ export function TableEditor({
         onRaceChange={setImportColId}
         rowCount={rows.length}
         accentVars={accentVars}
-        onImport={(starts, markScratched) => {
-          if (!importColumn) return;
-          importRanks(importColumn.id, starts, markScratched);
-          const next = columns[columns.indexOf(importColumn) + 1];
-          if (next) setImportColId(next.id);
+        onImport={(imports, markScratched, single) => {
+          importRanks(imports, markScratched);
+          // After a single-race paste, step to the next race so a card can
+          // still be filled one table at a time.
+          if (single && importColumn) {
+            const next = columns[columns.indexOf(importColumn) + 1];
+            if (next) setImportColId(next.id);
+          }
         }}
       />
 
