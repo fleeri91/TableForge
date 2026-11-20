@@ -5,10 +5,8 @@ import { BLUE, GREEN, RED, YELLOW } from "../config/cellColors";
 // per start number. Each horse's rank cell carries an `ay-rank-a`…`ay-rank-d`
 // class, which maps onto the palette below.
 //
-// Two shapes are accepted:
-//  - the whole `<div class="tab-content">` (or anything containing its
-//    `tab-pane`s): one race per pane, so a full card is imported in one paste;
-//  - a single race's `<tbody>` (or table), applied to a race picked by hand.
+// The paste is the whole `<div class="tab-content">` (or anything containing
+// its `tab-pane`s): one race per pane, so a full card is imported at once.
 
 export const RANK_COLORS: Record<string, string> = {
   a: GREEN,
@@ -25,9 +23,8 @@ export interface ImportedStart {
 }
 
 export interface ImportedRace {
-  // 1-based race number within the card ("V85-3" → 3), or null when the paste
-  // was a bare table with no pane around it to say which race it is.
-  raceNumber: number | null;
+  // 1-based race number within the card ("V85-3" → 3).
+  raceNumber: number;
   label: string;
   starts: ImportedStart[];
 }
@@ -58,16 +55,8 @@ function parseStarts(root: ParentNode): ImportedStart[] {
 export function parseRankHtml(html: string): ImportedRace[] {
   if (html.trim() === "") return [];
 
-  // The HTML parser drops <tbody>/<tr> found outside a <table>, so a pasted
-  // bare <tbody> needs wrapping to survive.
-  const source = /<table[\s>]/i.test(html) ? html : `<table>${html}</table>`;
-  const doc = new DOMParser().parseFromString(source, "text/html");
-
+  const doc = new DOMParser().parseFromString(html, "text/html");
   const panes = [...doc.querySelectorAll(".tab-pane, [role=tabpanel]")];
-  if (panes.length === 0) {
-    const starts = parseStarts(doc);
-    return starts.length > 0 ? [{ raceNumber: null, label: "", starts }] : [];
-  }
 
   const races: ImportedRace[] = [];
   panes.forEach((pane, i) => {

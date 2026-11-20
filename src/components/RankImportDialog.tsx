@@ -10,13 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -37,14 +30,12 @@ interface PlannedRace {
 
 // A dialog for filling cell colors from gratistravtips.se start lists pasted
 // as HTML. Pasting the whole tab-content fills every race at once (race N goes
-// to column N); pasting a single table fills the race picked in the selector.
+// to column N).
 // Shows a preview of the parsed colors before anything is applied.
 export function RankImportDialog({
   open,
   onOpenChange,
   races,
-  raceId,
-  onRaceChange,
   rowCount,
   accentVars,
   onImport,
@@ -52,23 +43,19 @@ export function RankImportDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   races: { id: string; name: string }[];
-  raceId: string;
-  onRaceChange: (id: string) => void;
   // Start numbers above this have no row in the table and are skipped.
   rowCount: number;
   accentVars: React.CSSProperties;
-  // `single` is true for a one-table paste applied to the selected race.
-  onImport: (imports: RaceImport[], markScratched: boolean, single: boolean) => void;
+  onImport: (imports: RaceImport[], markScratched: boolean) => void;
 }) {
   const [html, setHtml] = useState("");
   const [markScratched, setMarkScratched] = useState(true);
   const parsed = useMemo(() => parseRankHtml(html), [html]);
-  const single = parsed.length === 1 && parsed[0].raceNumber === null;
 
   const planned: PlannedRace[] = parsed.map((r, i) => {
-    const target = single ? races.find((c) => c.id === raceId) : races[r.raceNumber! - 1];
+    const target = races[r.raceNumber - 1];
     return {
-      key: `${r.raceNumber ?? "x"}-${i}`,
+      key: `${r.raceNumber}-${i}`,
       label: r.label,
       raceId: target?.id ?? null,
       raceName: target?.name ?? null,
@@ -104,36 +91,43 @@ export function RankImportDialog({
           </DialogTitle>
           <DialogDescription>
             Klistra in hela startlistan (tab-content) som HTML så fylls alla
-            lopp på en gång, eller en enskild tabell för det valda loppet. Rank
-            A blir grön, B blå, C gul och D röd.
+            lopp på en gång. Rank A blir grön, B blå, C gul och D röd.
           </DialogDescription>
         </DialogHeader>
 
-        {(parsed.length === 0 || single) && (
-          <div className="flex items-center gap-2">
-            <span className="font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Lopp
-            </span>
-            <Select
-              items={Object.fromEntries(races.map((r) => [r.id, r.name]))}
-              value={raceId}
-              onValueChange={(v) => {
-                if (v) onRaceChange(v as string);
-              }}
-            >
-              <SelectTrigger size="sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {races.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <details className="group rounded-md border px-3 py-2 text-sm">
+          <summary className="cursor-pointer font-display text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Så hämtar du startlistan
+          </summary>
+          <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
+            <li>
+              Gå till{" "}
+              <a
+                href="https://www.gratistravtips.se/"
+                target="_blank"
+                rel="noreferrer"
+                className="text-(--tf-accent) underline underline-offset-2"
+              >
+                gratistravtips.se
+              </a>{" "}
+              och välj spelet du vill importera färgerna från (t.ex. V85).
+            </li>
+            <li>
+              Högerklicka på en häst i startlistan och välj{" "}
+              <strong>Granska</strong> (Inspect).
+            </li>
+            <li>
+              Leta uppåt i elementträdet tills du hittar{" "}
+              <code className="font-mono text-xs">{'<div class="tab-content">'}</code>{" "}
+              – den markerar alla lopp på sidan.
+            </li>
+            <li>
+              Högerklicka på den raden och välj{" "}
+              <strong>Kopiera → Kopiera element</strong> (Copy → Copy element).
+            </li>
+            <li>Klistra in här nedanför.</li>
+          </ol>
+        </details>
 
         <Textarea
           autoFocus
@@ -156,11 +150,9 @@ export function RankImportDialog({
                   key={p.key}
                   className={["flex flex-col gap-1", p.raceId ? "" : "opacity-40"].join(" ")}
                 >
-                  {!single && (
-                    <span className="font-display text-xs font-semibold text-muted-foreground">
-                      {p.label} → {p.raceName ?? "ingen kolumn"}
-                    </span>
-                  )}
+                  <span className="font-display text-xs font-semibold text-muted-foreground">
+                    {p.label} → {p.raceName ?? "ingen kolumn"}
+                  </span>
                   <div className="flex flex-wrap gap-1">
                     {p.starts.map((s) => (
                       <span
@@ -212,7 +204,7 @@ export function RankImportDialog({
           <Button
             disabled={startCount === 0}
             onClick={() => {
-              onImport(imports, markScratched, single);
+              onImport(imports, markScratched);
               close(false);
             }}
           >

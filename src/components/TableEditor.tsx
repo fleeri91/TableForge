@@ -497,12 +497,6 @@ export function TableEditor({
   // Start number N maps to the table's Nth row. Only the imported starts'
   // cells change; the rest of the column keeps its colors.
 
-  // The race the import dialog has selected. After an import it moves on to
-  // the next race, so a whole card can be filled in one race after another.
-  const [importColId, setImportColId] = useState<string | null>(null);
-  const importColumn =
-    columns.find((c) => c.id === importColId) ?? columns[0] ?? null;
-
   const importRanks = (imports: RaceImport[], markScratched: boolean) => {
     const targets = imports.flatMap(({ raceId, starts }) =>
       starts.flatMap((s) => {
@@ -695,22 +689,12 @@ export function TableEditor({
 
       {/* ── Rank import ── */}
       <RankImportDialog
-        open={importOpen && importColumn !== null}
+        open={importOpen && columns.length > 0}
         onOpenChange={onImportOpenChange}
         races={columns.map((c, i) => ({ id: c.id, name: c.name || colLabel(i) }))}
-        raceId={importColumn?.id ?? ""}
-        onRaceChange={setImportColId}
         rowCount={rows.length}
         accentVars={accentVars}
-        onImport={(imports, markScratched, single) => {
-          importRanks(imports, markScratched);
-          // After a single-race paste, step to the next race so a card can
-          // still be filled one table at a time.
-          if (single && importColumn) {
-            const next = columns[columns.indexOf(importColumn) + 1];
-            if (next) setImportColId(next.id);
-          }
-        }}
+        onImport={importRanks}
       />
 
       {/* ── Context Menu ── */}
